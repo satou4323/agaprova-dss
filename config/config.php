@@ -2,7 +2,10 @@
 // DSS AGAPROVA - Configuración Global
 
 if (!defined('BASE_URL')) {
-define('BASE_URL', 'http://localhost/agaprova-dss');
+$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$script_dir = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/agaprova-dss')), '/');
+define('BASE_URL', $protocol . '://' . $host . $script_dir);
 }
 if (!defined('BASE_PATH')) {
 define('BASE_PATH', dirname(dirname(__FILE__)));
@@ -16,7 +19,7 @@ if (!defined('DB_USER')) {
 define('DB_USER', 'root');
 }
 if (!defined('DB_PASS')) {
-define('DB_PASS', 'alexmaricon');
+define('DB_PASS', '77345226');
 }
 if (!defined('DB_NAME')) {
 define('DB_NAME', 'dss_agaprova');

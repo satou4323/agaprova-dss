@@ -27,7 +27,11 @@ class Router {
     private function getUri() {
         $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
         $basePath = str_replace('index.php', '', $_SERVER['SCRIPT_NAME']);
-        $uri = str_replace($basePath, '', $path);
+        if (strpos($path, $basePath) === 0) {
+            $uri = substr($path, strlen($basePath));
+        } else {
+            $uri = $path;
+        }
         return trim($uri, '/');
     }
     

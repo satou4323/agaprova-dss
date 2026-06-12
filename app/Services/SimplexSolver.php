@@ -416,7 +416,9 @@ class SimplexSolver {
             4 => 10.0
         ];
 
-        list($h, $m, $s) = explode(':', $hora_salida);
+        $partes = explode(':', $hora_salida);
+        $h = $partes[0] ?? 0;
+        $m = $partes[1] ?? 0;
         $hora_decimal = $h + ($m / 60);
 
         $rutas_activas = [];
