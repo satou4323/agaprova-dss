@@ -59,7 +59,7 @@ class BloqueoController extends Controller {
                 $sql = 'INSERT INTO bloqueos (ruta_id, activo, fecha_inicio) VALUES (?, 1, CURDATE())';
             }
         } else {
-            $sql = 'UPDATE bloqueos SET activo = 0 WHERE ruta_id = ?';
+            $sql = 'UPDATE bloqueos SET activo = 0, fecha_fin = CURDATE() WHERE ruta_id = ?';
         }
         
         if ($this->db->query($sql, [$ruta_id])) {
