@@ -75,9 +75,11 @@ class ReporteService {
         $pdf->SetFont('helvetica', 'B', 12);
         $pdf->SetFillColor(46, 125, 50);
         $pdf->SetTextColor(255, 255, 255);
-        $pdf->Cell(60, 9, 'Total Lotes: ' . $total_lotes, 1, 0, 'C', true);
-        $pdf->Cell(60, 9, 'Total Cabezas: ' . $total_cabezas, 1, 0, 'C', true);
-        $pdf->Cell(60, 9, 'Periodo: ' . (count($datos) > 0 ? date('d/m/Y', strtotime($datos[0]['fecha_registro'])) . ' - ' . date('d/m/Y', strtotime($datos[count($datos)-1]['fecha_registro'])) : '—'), 1, 1, 'C', true);
+        $pdf->Cell(55, 9, 'Total Lotes: ' . $total_lotes, 1, 0, 'C', true);
+        $pdf->Cell(55, 9, 'Total Cabezas: ' . $total_cabezas, 1, 0, 'C', true);
+        $pdf->SetFont('helvetica', 'B', 9);
+        $pdf->Cell(70, 9, 'Periodo: ' . (count($datos) > 0 ? date('d/m/Y', strtotime($datos[0]['fecha_registro'])) . ' - ' . date('d/m/Y', strtotime($datos[count($datos)-1]['fecha_registro'])) : '—'), 1, 1, 'C', true);
+        $pdf->SetFont('helvetica', 'B', 12);
         $pdf->Ln(5);
         
         if (!empty($datos)) {
