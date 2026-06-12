@@ -9,9 +9,9 @@
     <p class="mb-0"><strong>Rango:</strong> <?php echo date('d/m/Y', strtotime($rango['inicio'])); ?> al <?php echo date('d/m/Y', strtotime($rango['fin'])); ?></p>
   </div>
   <div>
-    <button onclick="window.print();" class="btn btn-primary btn-sm" style="background-color: <?php echo COLOR_PRIMARY; ?>; border-color: <?php echo COLOR_PRIMARY; ?>; padding: 7px 20px;">
-      <i class="fas fa-print"></i> Imprimir
-    </button>
+    <a href="<?php echo BASE_URL; ?>/reporte/generarPDFVer" class="btn btn-primary btn-sm" style="background-color: <?php echo COLOR_PRIMARY; ?>; border-color: <?php echo COLOR_PRIMARY; ?>; padding: 7px 20px;">
+      <i class="fas fa-file-pdf"></i> Descargar PDF
+    </a>
   </div>
 </div>
 

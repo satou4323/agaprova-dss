@@ -115,4 +115,23 @@ class ReporteController extends Controller {
             'csrf' => $this->generateCsrf()
         ]);
     }
+
+    public function generarPDFVerAction() {
+        $datos = Session::get('reporte_datos', []);
+        $rango = Session::get('reporte_rango', []);
+
+        if (empty($rango)) {
+            $rango = ['inicio' => date('Y-m-d'), 'fin' => date('Y-m-d')];
+        }
+
+        $reporteService = new ReporteService();
+        $resultado = $reporteService->generarReportePDFCompacto($datos, $rango);
+
+        if (!class_exists('TCPDF')) {
+            header('Content-Type: text/html; charset=utf-8');
+            header('Content-Disposition: attachment; filename="reporte_lotes_' . date('Y-m-d') . '.html"');
+            echo $resultado;
+        }
+        exit;
+    }
 }

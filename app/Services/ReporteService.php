@@ -212,6 +212,244 @@ class ReporteService {
         return $pdf->Output('reporte_' . date('Y-m-d') . '.pdf', 'D');
     }
     
+    public function generarReportePDFCompacto($datos, $rango, $titulo = 'Reporte de Lotes') {
+        if (!class_exists('TCPDF')) {
+            return $this->generarHTML($datos);
+        }
+
+        $pdf = new AgaprovaPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+
+        $pdf->SetCreator('DSS AGAPROVA');
+        $pdf->SetAuthor('AGAPROVA');
+        $pdf->SetTitle($titulo);
+        $pdf->SetSubject('Reporte Detallado de Lotes');
+
+        $pdf->setHeaderFont(['helvetica', '', 10]);
+        $pdf->setFooterFont(['helvetica', '', 8]);
+
+        $pdf->SetDefaultMonospacedFont('courier');
+        $pdf->SetMargins(15, 25, 15);
+        $pdf->SetHeaderMargin(10);
+        $pdf->SetFooterMargin(10);
+        $pdf->SetAutoPageBreak(true, 25);
+
+        $pdf->setImageScale(1.25);
+        $pdf->AddPage();
+
+        // ── ENCABEZADO ──
+        $pdf->SetFont('helvetica', 'B', 16);
+        $pdf->SetTextColor(46, 125, 50);
+        $pdf->Cell(0, 10, $titulo, 0, 1, 'L');
+        $pdf->SetFont('helvetica', '', 9);
+        $pdf->SetTextColor(80, 80, 80);
+        $pdf->Cell(0, 5, 'Generado: ' . date('d/m/Y H:i:s'), 0, 1, 'L');
+        $pdf->Cell(0, 5, 'AGAPROVA — Asociacion de Ganaderos de la Provincia de Vallegrande', 0, 1, 'L');
+        $pdf->Ln(3);
+
+        // ── RANGO ──
+        $pdf->SetFont('helvetica', '', 10);
+        $pdf->SetTextColor(60, 60, 60);
+        $pdf->Cell(0, 6, 'Rango del reporte: ' . date('d/m/Y', strtotime($rango['inicio'])) . ' al ' . date('d/m/Y', strtotime($rango['fin'])), 0, 1, 'L');
+        $pdf->Ln(3);
+
+        // ── TOTALES ──
+        $total_cabezas = array_sum(array_column($datos, 'cabezas'));
+        $total_lotes = count($datos);
+
+        $pdf->SetFont('helvetica', 'B', 11);
+        $pdf->SetFillColor(46, 125, 50);
+        $pdf->SetTextColor(255, 255, 255);
+        $pdf->Cell(90, 8, 'Total Lotes: ' . $total_lotes, 1, 0, 'C', true);
+        $pdf->Cell(90, 8, 'Total Cabezas: ' . $total_cabezas, 1, 1, 'C', true);
+        $pdf->Ln(6);
+
+        if (!empty($datos)) {
+            $page_w = 180;
+            $col_w = $page_w;
+            $margin_l = 15;
+            $card_bg = [252, 252, 249];
+            $card_border = [46, 125, 50];
+            $label_color = [100, 100, 100];
+            $value_color = [30, 30, 30];
+            $sep_color = [220, 220, 220];
+
+            foreach ($datos as $i => $fila) {
+                // Detectar salto de página
+                if ($pdf->GetY() > $pdf->getPageHeight() - $pdf->getFooterMargin() - 45) {
+                    $pdf->AddPage();
+                }
+
+                $x0 = $margin_l;
+                $y0 = $pdf->GetY();
+
+                // ── CARD: fondo ──
+                $pdf->SetFillColor($card_bg[0], $card_bg[1], $card_bg[2]);
+                $pdf->SetDrawColor($card_border[0], $card_border[1], $card_border[2]);
+                $pdf->Rect($x0, $y0, $page_w, 26, 'DF');
+
+                // ── LÍNEA 1: Lote #ID + Fecha + Ruta ──
+                $pdf->SetXY($x0 + 3, $y0 + 2);
+                $pdf->SetFont('helvetica', 'B', 10);
+                $pdf->SetTextColor($card_border[0], $card_border[1], $card_border[2]);
+                $pdf->Cell(0, 5, 'Lote #' . $fila['id'], 0, 0, 'L');
+
+                $pdf->SetFont('helvetica', '', 8);
+                $pdf->SetTextColor($label_color[0], $label_color[1], $label_color[2]);
+                $pdf->Cell(0, 5, 'Fecha: ', 0, 0, 'R');
+                $pdf->SetTextColor($value_color[0], $value_color[1], $value_color[2]);
+                $pdf->Cell(0, 5, date('d/m/Y', strtotime($fila['fecha_registro'])), 0, 1, 'R');
+
+                // ── LÍNEA 2: Cabezas | Peso | Condición ──
+                $y1 = $y0 + 8;
+                $pdf->SetDrawColor($sep_color[0], $sep_color[1], $sep_color[2]);
+                $pdf->Line($x0 + 3, $y1, $x0 + $page_w - 3, $y1);
+
+                $pdf->SetXY($x0 + 3, $y1 + 1.5);
+                $chunk_w = ($page_w - 6) / 3;
+
+                // Cabezas
+                $pdf->SetFont('helvetica', 'B', 7.5);
+                $pdf->SetTextColor($label_color[0], $label_color[1], $label_color[2]);
+                $pdf->Cell($chunk_w, 4.5, 'Cabezas:', 0, 0, 'L');
+                $pdf->SetFont('helvetica', '', 8);
+                $pdf->SetTextColor($value_color[0], $value_color[1], $value_color[2]);
+                $pdf->Cell($chunk_w, 4.5, $fila['cabezas'], 0, 0, 'L');
+
+                $pdf->SetX($x0 + 3 + $chunk_w);
+                // Peso
+                $pdf->SetFont('helvetica', 'B', 7.5);
+                $pdf->SetTextColor($label_color[0], $label_color[1], $label_color[2]);
+                $pdf->Cell($chunk_w, 4.5, 'Peso Prom:', 0, 0, 'L');
+                $pdf->SetFont('helvetica', '', 8);
+                $pdf->SetTextColor($value_color[0], $value_color[1], $value_color[2]);
+                $pdf->Cell($chunk_w, 4.5, number_format($fila['peso_promedio_kg'], 1) . ' kg', 0, 0, 'L');
+
+                $pdf->SetX($x0 + 3 + $chunk_w * 2);
+                // Condición
+                $pdf->SetFont('helvetica', 'B', 7.5);
+                $pdf->SetTextColor($label_color[0], $label_color[1], $label_color[2]);
+                $pdf->Cell($chunk_w, 4.5, 'Condicion:', 0, 0, 'L');
+                $pdf->SetFont('helvetica', '', 8);
+                $pdf->SetTextColor($value_color[0], $value_color[1], $value_color[2]);
+                $pdf->Cell($chunk_w, 4.5, $fila['condicion'], 0, 1, 'L');
+
+                // ── LÍNEA 3: Estación | Hora | Mercado ──
+                $y2 = $y0 + 14.5;
+                $pdf->Line($x0 + 3, $y2, $x0 + $page_w - 3, $y2);
+                $pdf->SetXY($x0 + 3, $y2 + 1.5);
+
+                // Estación
+                $pdf->SetFont('helvetica', 'B', 7.5);
+                $pdf->SetTextColor($label_color[0], $label_color[1], $label_color[2]);
+                $pdf->Cell($chunk_w, 4.5, 'Estacion:', 0, 0, 'L');
+                $pdf->SetFont('helvetica', '', 8);
+                $pdf->SetTextColor($value_color[0], $value_color[1], $value_color[2]);
+                $pdf->Cell($chunk_w, 4.5, $fila['estacion'], 0, 0, 'L');
+
+                $pdf->SetX($x0 + 3 + $chunk_w);
+                // Hora
+                $pdf->SetFont('helvetica', 'B', 7.5);
+                $pdf->SetTextColor($label_color[0], $label_color[1], $label_color[2]);
+                $pdf->Cell($chunk_w, 4.5, 'Hora Salida:', 0, 0, 'L');
+                $pdf->SetFont('helvetica', '', 8);
+                $pdf->SetTextColor($value_color[0], $value_color[1], $value_color[2]);
+                $pdf->Cell($chunk_w, 4.5, $fila['hora_salida'], 0, 0, 'L');
+
+                $pdf->SetX($x0 + 3 + $chunk_w * 2);
+                // Mercado
+                $pdf->SetFont('helvetica', 'B', 7.5);
+                $pdf->SetTextColor($label_color[0], $label_color[1], $label_color[2]);
+                $pdf->Cell($chunk_w, 4.5, 'Mercado:', 0, 0, 'L');
+                $pdf->SetFont('helvetica', '', 8);
+                $pdf->SetTextColor($value_color[0], $value_color[1], $value_color[2]);
+                $pdf->Cell($chunk_w, 4.5, $fila['mercado'] ?? '—', 0, 1, 'L');
+
+                // ── LÍNEA 4: Ruta | Precio | Costo Flete ──
+                $y3 = $y0 + 21;
+                $pdf->Line($x0 + 3, $y3, $x0 + $page_w - 3, $y3);
+                $pdf->SetXY($x0 + 3, $y3 + 1.5);
+
+                // Ruta
+                $pdf->SetFont('helvetica', 'B', 7.5);
+                $pdf->SetTextColor($label_color[0], $label_color[1], $label_color[2]);
+                $pdf->Cell($chunk_w, 4.5, 'Ruta Asignada:', 0, 0, 'L');
+                $pdf->SetFont('helvetica', '', 8);
+                $pdf->SetTextColor($card_border[0], $card_border[1], $card_border[2]);
+                $pdf->Cell($chunk_w, 4.5, $fila['ruta'] ?? '—', 0, 0, 'L');
+
+                $pdf->SetX($x0 + 3 + $chunk_w);
+                // Precio
+                $pdf->SetFont('helvetica', 'B', 7.5);
+                $pdf->SetTextColor($label_color[0], $label_color[1], $label_color[2]);
+                $pdf->Cell($chunk_w, 4.5, 'Precio/kg:', 0, 0, 'L');
+                $pdf->SetFont('helvetica', '', 8);
+                $pdf->SetTextColor($value_color[0], $value_color[1], $value_color[2]);
+                $precio_txt = $fila['precio_kg'] ? 'Bs ' . number_format($fila['precio_kg'], 2) : '—';
+                $pdf->Cell($chunk_w, 4.5, $precio_txt, 0, 0, 'L');
+
+                $pdf->SetX($x0 + 3 + $chunk_w * 2);
+                // Costo Flete
+                $pdf->SetFont('helvetica', 'B', 7.5);
+                $pdf->SetTextColor($label_color[0], $label_color[1], $label_color[2]);
+                $pdf->Cell($chunk_w, 4.5, 'Costo Flete:', 0, 0, 'L');
+                $pdf->SetFont('helvetica', '', 8);
+                $pdf->SetTextColor($value_color[0], $value_color[1], $value_color[2]);
+                $flete_txt = $fila['costo_cabeza'] ? 'Bs ' . number_format($fila['costo_cabeza'], 2) : '—';
+                $pdf->Cell($chunk_w, 4.5, $flete_txt, 0, 1, 'L');
+
+                // Avanzar Y
+                $pdf->SetXY($margin_l, $y0 + 28);
+            }
+
+            $pdf->Ln(8);
+
+            // ── RESUMEN DE COSTOS DE FLETE ──
+            $pdf->SetFont('helvetica', 'B', 11);
+            $pdf->SetTextColor(46, 125, 50);
+            $pdf->Cell(0, 7, 'Costos de Flete Vigentes (Bs/cabeza):', 0, 1, 'L');
+            $pdf->Ln(1);
+
+            $costos = \App\Models\CostoFlete::getCostosActivos();
+            if (!empty($costos)) {
+                $cw = [90, 50, 40];
+                $pdf->SetFont('helvetica', 'B', 8);
+                $pdf->SetFillColor(46, 125, 50);
+                $pdf->SetTextColor(255, 255, 255);
+                $pdf->SetDrawColor(30, 100, 35);
+                $x0 = $pdf->GetX();
+                $y0 = $pdf->GetY();
+                $cheaders = ['Ruta', 'Costo por Cabeza', 'Vigencia'];
+                foreach ($cheaders as $i => $h) {
+                    $pdf->MultiCell($cw[$i], 7, $h, 1, 'C', true, 0, $x0 + array_sum(array_slice($cw, 0, $i)), $y0, true, 0, false, true, 7, 'M');
+                }
+                $pdf->SetXY($x0, $y0 + 7);
+                $pdf->SetDrawColor(200, 200, 200);
+                $pdf->SetFont('helvetica', '', 8);
+                $pdf->SetTextColor(40, 40, 40);
+                foreach ($costos as $c) {
+                    $cvals = [$c['codigo'] . ' - ' . $c['nombre'], 'Bs ' . number_format($c['costo_cabeza'], 2), date('d/m/Y', strtotime($c['semana_inicio']))];
+                    $x0 = $pdf->GetX();
+                    $y0 = $pdf->GetY();
+                    foreach ($cvals as $i => $v) {
+                        $pdf->MultiCell($cw[$i], 6, $v, 1, $i == 0 ? 'L' : 'C', false, 0, $x0 + array_sum(array_slice($cw, 0, $i)), $y0, true, 0, false, true, 6, 'M');
+                    }
+                    $pdf->SetXY($x0, $y0 + 6);
+                }
+            }
+        } else {
+            $pdf->SetFont('helvetica', '', 11);
+            $pdf->SetTextColor(150, 150, 150);
+            $pdf->Cell(0, 10, 'No hay datos registrados en el periodo seleccionado.', 0, 1, 'C');
+        }
+
+        $pdf->Ln(8);
+        $pdf->SetFont('helvetica', 'I', 8);
+        $pdf->SetTextColor(150, 150, 150);
+        $pdf->Cell(0, 5, 'Sistema DSS AGAPROVA v' . APP_VERSION . ' | Generado automaticamente', 0, 1, 'C');
+
+        return $pdf->Output('reporte_lotes_' . date('Y-m-d') . '.pdf', 'D');
+    }
+
     public function generarReporteHTML($datos, $nombre_archivo = 'reporte.html') {
         $html = $this->generarHTML($datos);
         return $html;
