@@ -13,35 +13,35 @@
 <!-- Indicadores KPI -->
 <div class="row mt-4 mb-3">
   <div class="col-lg-4 col-6">
-    <div class="small-box bg-success shadow-sm">
+    <div class="small-box" style="background: linear-gradient(135deg, #388E3C 0%, #2E7D32 100%); box-shadow: 0 2px 6px rgba(56,142,60,0.25);">
       <div class="inner">
-        <h3><?php echo $rutasActivas; ?></h3>
-        <p>Rutas Libres y Activas</p>
+        <h3 style="color: #fff; font-size: 1.6rem; font-weight: 700;"><?php echo $rutasActivas; ?></h3>
+        <p style="color: rgba(255,255,255,0.85); font-size: 0.85rem; margin-bottom: 0;">Rutas Libres y Activas</p>
       </div>
       <div class="icon">
-        <i class="fas fa-route"></i>
+        <i class="fas fa-route" style="color: rgba(255,255,255,0.2); font-size: 70px;"></i>
       </div>
     </div>
   </div>
   <div class="col-lg-4 col-6">
-    <div class="small-box bg-danger shadow-sm">
+    <div class="small-box" style="background: linear-gradient(135deg, #C62828 0%, #B71C1C 100%); box-shadow: 0 2px 6px rgba(198,40,40,0.25);">
       <div class="inner">
-        <h3><?php echo $rutasBloqueadas; ?></h3>
-        <p>Rutas Bloqueadas</p>
+        <h3 style="color: #fff; font-size: 1.6rem; font-weight: 700;"><?php echo $rutasBloqueadas; ?></h3>
+        <p style="color: rgba(255,255,255,0.85); font-size: 0.85rem; margin-bottom: 0;">Rutas Bloqueadas</p>
       </div>
       <div class="icon">
-        <i class="fas fa-ban"></i>
+        <i class="fas fa-ban" style="color: rgba(255,255,255,0.2); font-size: 70px;"></i>
       </div>
     </div>
   </div>
   <div class="col-lg-4 col-12">
-    <div class="small-box bg-info shadow-sm">
+    <div class="small-box" style="background: linear-gradient(135deg, #1565C0 0%, #0D47A1 100%); box-shadow: 0 2px 6px rgba(21,101,192,0.25);">
       <div class="inner">
-        <h3><?php echo number_format($promedioTiempo, 1); ?><sup style="font-size: 20px">h</sup></h3>
-        <p>Tiempo Promedio (Global)</p>
+        <h3 style="color: #fff; font-size: 1.6rem; font-weight: 700;"><?php echo number_format($promedioTiempo, 1); ?><sup style="font-size: 20px">h</sup></h3>
+        <p style="color: rgba(255,255,255,0.85); font-size: 0.85rem; margin-bottom: 0;">Tiempo Promedio (Global)</p>
       </div>
       <div class="icon">
-        <i class="far fa-clock"></i>
+        <i class="far fa-clock" style="color: rgba(255,255,255,0.2); font-size: 70px;"></i>
       </div>
     </div>
   </div>

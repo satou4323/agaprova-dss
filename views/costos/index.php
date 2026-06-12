@@ -1,58 +1,46 @@
 <!-- KPI Widgets -->
 <div class="row">
   <div class="col-lg-3 col-6">
-    <div class="small-box" style="background: linear-gradient(135deg, #2E7D32, #388E3C); color: #fff;">
+    <div class="small-box" style="background: linear-gradient(135deg, #2E7D32 0%, #1B5E20 100%); box-shadow: 0 2px 6px rgba(46,125,50,0.25);">
       <div class="inner">
-        <h3>Bs <?php echo number_format($kpi['costo_promedio'], 2); ?></h3>
-        <p>Costo Promedio</p>
+        <h3 style="color: #fff; font-size: 1.6rem; font-weight: 700;">Bs <?php echo number_format($kpi['costo_promedio'], 2); ?></h3>
+        <p style="color: rgba(255,255,255,0.85); font-size: 0.85rem; margin-bottom: 0;">Costo Promedio</p>
       </div>
       <div class="icon">
-        <i class="fas fa-calculator"></i>
-      </div>
-      <div class="small-box-footer" style="background: rgba(0,0,0,0.12);">
-        <span>Promedio de costos vigentes</span>
+        <i class="fas fa-calculator" style="color: rgba(255,255,255,0.2); font-size: 70px;"></i>
       </div>
     </div>
   </div>
   <div class="col-lg-3 col-6">
-    <div class="small-box" style="background: linear-gradient(135deg, #C62828, #E53935); color: #fff;">
+    <div class="small-box" style="background: linear-gradient(135deg, #C62828 0%, #B71C1C 100%); box-shadow: 0 2px 6px rgba(198,40,40,0.25);">
       <div class="inner">
-        <h3>Bs <?php echo number_format($kpi['costo_max'], 2); ?></h3>
-        <p>Ruta Más Cara</p>
+        <h3 style="color: #fff; font-size: 1.6rem; font-weight: 700;">Bs <?php echo number_format($kpi['costo_max'], 2); ?></h3>
+        <p style="color: rgba(255,255,255,0.85); font-size: 0.85rem; margin-bottom: 0;">Ruta Más Cara</p>
       </div>
       <div class="icon">
-        <i class="fas fa-arrow-up"></i>
-      </div>
-      <div class="small-box-footer" style="background: rgba(0,0,0,0.12);">
-        <span><?php echo $kpi['ruta_max_codigo']; ?> — <?php echo $kpi['ruta_max_nombre']; ?></span>
+        <i class="fas fa-arrow-up" style="color: rgba(255,255,255,0.2); font-size: 70px;"></i>
       </div>
     </div>
   </div>
   <div class="col-lg-3 col-6">
-    <div class="small-box" style="background: linear-gradient(135deg, #1565C0, #1E88E5); color: #fff;">
+    <div class="small-box" style="background: linear-gradient(135deg, #1565C0 0%, #0D47A1 100%); box-shadow: 0 2px 6px rgba(21,101,192,0.25);">
       <div class="inner">
-        <h3>Bs <?php echo number_format($kpi['costo_min'], 2); ?></h3>
-        <p>Ruta Más Barata</p>
+        <h3 style="color: #fff; font-size: 1.6rem; font-weight: 700;">Bs <?php echo number_format($kpi['costo_min'], 2); ?></h3>
+        <p style="color: rgba(255,255,255,0.85); font-size: 0.85rem; margin-bottom: 0;">Ruta Más Barata</p>
       </div>
       <div class="icon">
-        <i class="fas fa-arrow-down"></i>
-      </div>
-      <div class="small-box-footer" style="background: rgba(0,0,0,0.12);">
-        <span><?php echo $kpi['ruta_min_codigo']; ?> — <?php echo $kpi['ruta_min_nombre']; ?></span>
+        <i class="fas fa-arrow-down" style="color: rgba(255,255,255,0.2); font-size: 70px;"></i>
       </div>
     </div>
   </div>
   <div class="col-lg-3 col-6">
-    <div class="small-box" style="background: linear-gradient(135deg, #F57F17, #FBC02D); color: #fff;">
+    <div class="small-box" style="background: linear-gradient(135deg, #F57F17 0%, #E65100 100%); box-shadow: 0 2px 6px rgba(245,127,23,0.3);">
       <div class="inner">
-        <h3><?php echo $kpi['total_cambios']; ?></h3>
-        <p>Cambios Registrados</p>
+        <h3 style="color: #fff; font-size: 1.6rem; font-weight: 700;"><?php echo $kpi['total_cambios']; ?></h3>
+        <p style="color: rgba(255,255,255,0.85); font-size: 0.85rem; margin-bottom: 0;">Cambios Registrados</p>
       </div>
       <div class="icon">
-        <i class="fas fa-history"></i>
-      </div>
-      <div class="small-box-footer" style="background: rgba(0,0,0,0.12);">
-        <span>Total en el sistema</span>
+        <i class="fas fa-history" style="color: rgba(255,255,255,0.2); font-size: 70px;"></i>
       </div>
     </div>
   </div>
