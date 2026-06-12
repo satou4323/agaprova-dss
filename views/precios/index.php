@@ -154,10 +154,10 @@
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/adminlte/plugins/select2/css/select2.min.css">
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/adminlte/plugins/select2-bootstrap4-theme/select2-bootstrap4.min.css">
 
-<!-- CDNs y Plugins Adicionales -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.19.5/dist/jquery.validate.min.js"></script>
+<!-- Plugins Adicionales (locales) -->
+<script src="<?php echo BASE_URL; ?>/assets/adminlte/plugins/chart.js/chart.umd.min.js"></script>
+<script src="<?php echo BASE_URL; ?>/assets/adminlte/plugins/sweetalert2/sweetalert2.all.min.js"></script>
+<script src="<?php echo BASE_URL; ?>/assets/adminlte/plugins/jquery-validation/jquery.validate.min.js"></script>
 <script src="<?php echo BASE_URL; ?>/assets/adminlte/plugins/select2/js/select2.full.min.js"></script>
 
 <script>

@@ -149,20 +149,14 @@ use App\Services\ClimaService;
   </div>
 </div>
 
-<!-- Estilos para Ion Slider y Daterange Picker -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/ion-rangeslider/2.3.1/css/ion.rangeSlider.min.css"/>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css">
+<!-- Estilos para Ion Slider y Daterange Picker (locales) -->
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/adminlte/plugins/ion-rangeslider/css/ion.rangeSlider.min.css"/>
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/adminlte/plugins/daterangepicker/daterangepicker.min.css">
 
-<!-- Scripts -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ion-rangeslider/2.3.1/js/ion.rangeSlider.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/moment/min/moment.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
-<script src="https://cdn.datatables.net/buttons/2.3.6/js/dataTables.buttons.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-<script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.html5.min.js"></script>
-<script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.print.min.js"></script>
+<!-- Scripts (locales) -->
+<script src="<?php echo BASE_URL; ?>/assets/adminlte/plugins/ion-rangeslider/js/ion.rangeSlider.min.js"></script>
+<script src="<?php echo BASE_URL; ?>/assets/adminlte/plugins/moment/moment.min.js"></script>
+<script src="<?php echo BASE_URL; ?>/assets/adminlte/plugins/daterangepicker/daterangepicker.min.js"></script>
 
 <script>
   document.addEventListener('DOMContentLoaded', function () {
