@@ -89,8 +89,8 @@ document.addEventListener('DOMContentLoaded', function() {
     responsive: false,
     autoWidth: true,
     pagingType: 'full_numbers',
-    pageLength: 10,
-    lengthMenu: [[5, 10, 25, 50, -1], [5, 10, 25, 50, 'Todos']],
+    pageLength: 9,
+    lengthMenu: [[9, 18, 36, -1], [9, 18, 36, 'Todos']],
     order: [[0, 'desc']],
     language: {
       processing: 'Procesando...',
