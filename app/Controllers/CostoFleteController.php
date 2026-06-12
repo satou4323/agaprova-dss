@@ -15,9 +15,14 @@ class CostoFleteController extends Controller {
                 WHERE cf.activo = 1 ORDER BY cf.semana_inicio DESC';
         $costos = $this->db->getConnection()->query($sql)->fetchAll();
         
+        $historial = CostoFlete::getAllHistory();
+        $kpi = CostoFlete::getKpiData();
+        
         $this->render('costos.index', [
             'costos' => $costos,
             'rutas' => $rutas,
+            'historial' => $historial,
+            'kpi' => $kpi,
             'csrf' => $this->generateCsrf()
         ]);
     }
