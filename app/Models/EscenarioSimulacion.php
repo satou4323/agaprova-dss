@@ -5,7 +5,7 @@ use App\Model;
 
 class EscenarioSimulacion extends Model {
     protected $table = 'escenarios_simulacion';
-    protected $fillable = ['codigo', 'nombre', 'descripcion', 'estacion_id', 'condicion_id', 'precio_sc', 'precio_cb', 'costo_c1', 'costo_c2', 'costo_c3', 'costo_c4', 'prob_lluvia', 'bloqueo_r1', 'bloqueo_r2', 'bloqueo_r3', 'bloqueo_r4', 'datos_json', 'created_at'];
+    protected $fillable = ['codigo', 'nombre', 'descripcion', 'estacion_id', 'condicion_id', 'usuario_id', 'precio_sc', 'precio_cb', 'costo_c1', 'costo_c2', 'costo_c3', 'costo_c4', 'prob_lluvia', 'bloqueo_r1', 'bloqueo_r2', 'bloqueo_r3', 'bloqueo_r4', 'datos_json', 'created_at'];
     
     public static function findByCodigo($codigo) {
         $instance = new static();

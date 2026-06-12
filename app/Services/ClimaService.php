@@ -10,10 +10,21 @@ class ClimaService {
         $db = \App\Database::getInstance();
         $db->query('UPDATE clima SET activo = 0 WHERE ubicacion = ?', [$ubicacion]);
         
+        // Determinar estación según mes actual
+        $mes = intval(date('n'));
+        if ($mes >= 5 && $mes <= 8) {
+            $estacion_id = 1; // Seca
+        } elseif ($mes >= 12 || $mes <= 3) {
+            $estacion_id = 2; // Lluviosa
+        } else {
+            $estacion_id = 3; // Transicion
+        }
+        
         // Crear nuevo registro climático
         $clima = new Clima();
         $clima->probabilidad_lluvia = $probabilidad_lluvia;
         $clima->ubicacion = $ubicacion;
+        $clima->estacion_id = $estacion_id;
         $clima->fecha_registro = date('Y-m-d');
         $clima->activo = 1;
         $clima->created_at = date('Y-m-d H:i:s');

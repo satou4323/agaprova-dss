@@ -5,7 +5,7 @@ use App\Model;
 
 class LoteGanado extends Model {
     protected $table = 'lotes_ganado';
-    protected $fillable = ['cabezas', 'peso_promedio_kg', 'condicion_id', 'estacion_id', 'hora_salida', 'fecha_registro', 'activo', 'created_at'];
+    protected $fillable = ['cabezas', 'peso_promedio_kg', 'condicion_id', 'estacion_id', 'usuario_id', 'ruta_optima_id', 'hora_salida', 'fecha_registro', 'activo', 'created_at'];
     
     public static function getActivos() {
         $instance = new static();

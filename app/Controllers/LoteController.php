@@ -58,6 +58,7 @@ class LoteController extends Controller {
         $lote->peso_promedio_kg = $peso_promedio;
         $lote->condicion_id = $condicion_id;
         $lote->estacion_id = $estacion_id;
+        $lote->usuario_id = Session::get('user_id');
         $lote->hora_salida = $hora_salida;
         $lote->fecha_registro = date('Y-m-d');
         $lote->activo = 1;
