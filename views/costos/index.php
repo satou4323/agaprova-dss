@@ -221,8 +221,8 @@ document.addEventListener('DOMContentLoaded', function() {
     responsive: false,
     autoWidth: true,
     pagingType: 'full_numbers',
-    pageLength: 8,
-    lengthMenu: [[8, 16, 32, -1], [8, 16, 32, 'Todos']],
+    pageLength: 7,
+    lengthMenu: [[7, 14, 28, -1], [7, 14, 28, 'Todos']],
     order: [[0, 'desc']],
     language: {
       processing: 'Procesando...',
