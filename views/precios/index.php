@@ -45,7 +45,7 @@
       <div class="card-header border-0">
         <h3 class="card-title"><i class="fas fa-history text-info mr-1"></i> Últimos Movimientos</h3>
       </div>
-      <div class="card-body p-0 table-responsive" style="max-height: 250px; overflow-y: auto;">
+      <div class="card-body p-0 table-responsive" style="max-height: 340px; overflow-y: auto;">
         <table class="table table-striped table-valign-middle mb-0" style="font-size: 0.85rem;">
           <thead>
             <tr>
