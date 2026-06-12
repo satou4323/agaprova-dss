@@ -30,11 +30,15 @@ class ReporteController extends Controller {
         
         $reporteService = new ReporteService();
         $datos = $reporteService->generarReporteSemanal($fecha_inicio, $fecha_fin);
-        $html = $reporteService->generarReportePDF($datos);
+        $resultado = $reporteService->generarReportePDF($datos);
         
-        header('Content-Type: text/html; charset=utf-8');
-        header('Content-Disposition: attachment; filename="reporte_' . date('Y-m-d') . '.html"');
-        echo $html;
+        // Si TCPDF no está disponible, usar respaldo HTML
+        if (!class_exists('TCPDF')) {
+            header('Content-Type: text/html; charset=utf-8');
+            header('Content-Disposition: attachment; filename="reporte_' . date('Y-m-d') . '.html"');
+            echo $resultado;
+        }
+        // Si TCPDF está disponible, $pdf->Output('D') ya envió headers PDF y contenido
         exit;
     }
     

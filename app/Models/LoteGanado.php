@@ -32,4 +32,21 @@ class LoteGanado extends Model {
         }
         return null;
     }
+    
+    public static function getActivosConRuta() {
+        $instance = new static();
+        $sql = 'SELECT l.*, r.codigo as ruta_codigo, r.nombre as ruta_nombre 
+                FROM ' . $instance->table . ' l
+                LEFT JOIN rutas r ON l.ruta_optima_id = r.id
+                WHERE l.activo = 1 ORDER BY l.fecha_registro DESC';
+        $data = $instance->db->fetchAll($sql);
+        
+        $models = [];
+        foreach ($data as $row) {
+            $model = new static();
+            $model->attributes = $row;
+            $models[] = $model;
+        }
+        return $models;
+    }
 }

@@ -6,7 +6,7 @@
 require_once dirname(dirname(__FILE__)) . '/config/config.php';
 
 ErrorHandler::register();
-Session::start();
+\App\Session::init();
 
 header('Content-Type: application/json');
 
@@ -21,36 +21,33 @@ $response = [
 
 try {
     // Verificar autenticación
-    if (!Session::get('usuario_id')) {
+    if (!\App\Session::get('user_id')) {
         throw new Exception('No autenticado', 401);
     }
 
     switch ($action) {
         case 'get_precios':
-            $precios = Precio::getAll();
+            $precios = \App\Models\Precio::all();
             $response['success'] = true;
             $response['data'] = $precios;
             break;
 
         case 'get_rutas':
-            $rutas = Ruta::getAll();
+            $rutas = \App\Models\Ruta::all();
             $response['success'] = true;
             $response['data'] = $rutas;
             break;
 
         case 'get_estaciones':
-            $estaciones = Estacion::getAll();
+            $estaciones = \App\Models\Estacion::all();
             $response['success'] = true;
             $response['data'] = $estaciones;
             break;
 
         case 'get_clima':
-            $estacion_id = $_GET['estacion_id'] ?? null;
-            if (!$estacion_id) throw new Exception('estacion_id requerido');
-            
-            $clima = Clima::where(['estacion_id' => $estacion_id])->first();
+            $clima = \App\Models\Clima::getActivo();
             $response['success'] = true;
-            $response['data'] = $clima;
+            $response['data'] = $clima ? $clima->toArray() : null;
             break;
 
         case 'validar_bloqueo':
@@ -64,9 +61,9 @@ try {
                 throw new Exception('Parámetros inválidos');
             }
 
-            $canShip = Helpers::canShipOnDate($ruta_id, $fecha);
+            $bloqueado = \App\Models\Bloqueo::estasBloqueada($ruta_id);
             $response['success'] = true;
-            $response['data'] = ['puede_enviar' => $canShip];
+            $response['data'] = ['puede_enviar' => !$bloqueado];
             break;
 
         case 'calcular_flete':
@@ -74,20 +71,18 @@ try {
             
             $data = json_decode(file_get_contents('php://input'), true);
             $ruta_id = $data['ruta_id'] ?? null;
-            $cantidad_ganado = $data['cantidad_ganado'] ?? null;
 
-            if (!$ruta_id || !$cantidad_ganado) {
+            if (!$ruta_id) {
                 throw new Exception('Parámetros inválidos');
             }
 
-            $costo = CostoFlete::calcularCosto($ruta_id, $cantidad_ganado);
+            $costo = \App\Models\CostoFlete::getCostoPorRuta($ruta_id);
             $response['success'] = true;
             $response['data'] = ['costo' => $costo];
             break;
 
         case 'listar_simulaciones':
-            $usuario_id = Session::get('usuario_id');
-            $simulaciones = EscenarioSimulacion::where(['usuario_id' => $usuario_id])->get();
+            $simulaciones = \App\Models\EscenarioSimulacion::getEscenarios();
             $response['success'] = true;
             $response['data'] = $simulaciones;
             break;
@@ -96,11 +91,11 @@ try {
             $id = $_GET['id'] ?? null;
             if (!$id) throw new Exception('ID requerido');
             
-            $simulacion = EscenarioSimulacion::find($id);
+            $simulacion = \App\Models\EscenarioSimulacion::find($id);
             if (!$simulacion) throw new Exception('Simulación no encontrada', 404);
             
             $response['success'] = true;
-            $response['data'] = $simulacion;
+            $response['data'] = $simulacion->toArray();
             break;
 
         default:

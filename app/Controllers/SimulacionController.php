@@ -43,8 +43,8 @@ class SimulacionController extends Controller {
         $simplex = new SimplexSolver();
         $resultado = $simplex->optimizar(
             0,
-            100, // 100 cabezas estándar
-            420, // peso promedio típico
+            CABEZAS_DEFAULT,
+            PESO_DEFAULT,
             $datos['condicion_id'] ?? 1,
             $datos['estacion_id'] ?? 1,
             '20:00:00',

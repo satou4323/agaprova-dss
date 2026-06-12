@@ -213,7 +213,7 @@
     });
 
     // 3. Revisar si hay mensaje de éxito desde PHP
-    <?php if(isset($_SESSION['success_message'])): ?>
+    <?php if(\App\Session::hasFlash('success')): ?>
       const Toast = Swal.mixin({
         toast: true,
         position: 'top-end',
@@ -223,9 +223,8 @@
       });
       Toast.fire({
         icon: 'success',
-        title: '<?php echo $_SESSION['success_message']; ?>'
+        title: '<?php echo \App\Session::flash('success'); ?>'
       });
-      <?php unset($_SESSION['success_message']); ?>
     <?php endif; ?>
   });
 </script>

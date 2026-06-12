@@ -1,6 +1,8 @@
 <?php if ($resultado['factible']): ?>
-  <div class="callout callout-success" style="padding: 0.8rem 1rem; font-size: 0.9rem;">
-    <h5 style="margin-bottom: 0;"><i class="fas fa-check-circle"></i> Solución Factible Encontrada</h5>
+  <?php $tipo = $resultado['detalles']['tipo_margen'] ?? 'pérdida'; ?>
+  <div class="callout <?php echo $tipo === 'ganancia' ? 'callout-success' : 'callout-warning'; ?>" style="padding: 0.8rem 1rem; font-size: 0.9rem;">
+    <h5 style="margin-bottom: 0;"><i class="fas <?php echo $tipo === 'ganancia' ? 'fa-check-circle' : 'fa-exclamation-triangle'; ?>"></i> 
+    <?php echo $tipo === 'ganancia' ? 'Solución Óptima — Margen Positivo' : 'Solución Óptima — Minimización de Pérdida (Envío Obligatorio)'; ?></h5>
   </div>
 
   <div class="row mt-4">
@@ -38,7 +40,7 @@
       <div class="small-box" style="background: linear-gradient(135deg, #43A047 0%, #2E7D32 100%); box-shadow: 0 2px 6px rgba(67,160,71,0.25);">
         <div class="inner">
           <h3 style="color: #fff; font-size: 1.2rem; font-weight: 700;">Bs <?php echo number_format($resultado['ganancia_total'], 2); ?></h3>
-          <p style="color: rgba(255,255,255,0.85); font-size: 0.85rem; margin-bottom: 0;">Ganancia Total</p>
+          <p style="color: rgba(255,255,255,0.85); font-size: 0.85rem; margin-bottom: 0;">Margen Neto Total</p>
         </div>
         <div class="icon">
           <i class="fas fa-money-bill-wave" style="color: rgba(255,255,255,0.2); font-size: 60px;"></i>

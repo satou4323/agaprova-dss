@@ -9,7 +9,7 @@ use App\Session;
 class LoteController extends Controller {
     
     public function indexAction() {
-        $lotes = LoteGanado::getActivos();
+        $lotes = LoteGanado::getActivosConRuta();
         $estaciones = Estacion::all();
         $condiciones = CondicionGanado::all();
         
@@ -79,6 +79,23 @@ class LoteController extends Controller {
             if ($resultado['factible'] && isset($resultado['detalles']['ruta_optima'])) {
                 $ruta_optima_id = intval($resultado['detalles']['ruta_optima']);
                 $this->db->query('UPDATE lotes_ganado SET ruta_optima_id = ? WHERE id = ?', [$ruta_optima_id, $lote->id]);
+            }
+            
+            // Persistir resultados completos en resultados_optimizacion
+            if ($resultado['factible']) {
+                $this->db->query(
+                    'INSERT INTO resultados_optimizacion (fecha_calculo, x1, x2, x3, x4, ganancia_total, factible, datos_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                    [
+                        date('Y-m-d'),
+                        $resultado['x1'],
+                        $resultado['x2'],
+                        $resultado['x3'],
+                        $resultado['x4'],
+                        $resultado['ganancia_total'],
+                        $resultado['factible'] ? 1 : 0,
+                        json_encode($resultado['detalles'])
+                    ]
+                );
             }
             
             Session::flash('success', 'Lote registrado. Resultado de optimización disponible.');

@@ -11,7 +11,7 @@
               <div class="form-group">
                 <label class="text-muted" style="font-size: 0.85rem; font-weight: 500;">Número de Cabezas</label>
                 <div class="input-group input-group-sm">
-                  <input type="number" name="cabezas" class="form-control" required min="1" value="100">
+                  <input type="number" name="cabezas" class="form-control" required min="1" value="<?php echo CABEZAS_DEFAULT; ?>">
                   <div class="input-group-append">
                     <span class="input-group-text"><i class="fas fa-cow"></i></span>
                   </div>
@@ -22,7 +22,7 @@
               <div class="form-group">
                 <label class="text-muted" style="font-size: 0.85rem; font-weight: 500;">Peso Promedio</label>
                 <div class="input-group input-group-sm">
-                  <input type="number" name="peso_promedio_kg" class="form-control" required min="100" step="0.01" value="420">
+                  <input type="number" name="peso_promedio_kg" class="form-control" required min="100" step="0.01" value="<?php echo PESO_DEFAULT; ?>">
                   <div class="input-group-append">
                     <span class="input-group-text">kg</span>
                   </div>
@@ -74,6 +74,15 @@
             </div>
           </div>
 
+          <?php $mes_actual = intval(date('n')); $es_invierno = ($mes_actual >= 5 && $mes_actual <= 8); ?>
+          <?php if ($es_invierno): ?>
+            <div class="callout callout-info py-2 px-3 mb-2" style="font-size: 0.85rem;">
+              <i class="fas fa-snowflake text-info mr-1"></i>
+              <strong>Nota estacional:</strong> Estamos en temporada de invierno (mayo-agosto).
+              Se recomienda seleccionar condición <strong>"Invernal"</strong> si aplica.
+            </div>
+          <?php endif; ?>
+
           <input type="hidden" name="<?php echo CSRF_TOKEN_NAME; ?>" value="<?php echo $csrf; ?>">
 
           <hr class="mt-3 mb-3">
@@ -83,6 +92,24 @@
         </form>
       </div>
     </div>
+
+    <!-- Auto-detección de condición "vaca flaca" según mes -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      var mes = new Date().getMonth() + 1;
+      if (mes >= 5 && mes <= 8) {
+        var selectCond = document.querySelector('select[name="condicion_id"]');
+        if (selectCond) {
+          for (var i = 0; i < selectCond.options.length; i++) {
+            if (selectCond.options[i].text.indexOf('Invernal') !== -1) {
+              selectCond.value = selectCond.options[i].value;
+              break;
+            }
+          }
+        }
+      }
+    });
+    </script>
   </div>
 
   <div class="col-md-7">

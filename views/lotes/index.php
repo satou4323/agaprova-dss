@@ -19,6 +19,7 @@
             <th>Peso Promedio</th>
             <th>Condición</th>
             <th>Estación</th>
+            <th>Ruta Asignada</th>
             <th>Hora Salida</th>
             <th>Fecha</th>
             <th>Estado</th>
@@ -35,6 +36,7 @@
               <td><?php echo number_format($lote->peso_promedio_kg, 2); ?> kg</td>
               <td><?php echo $cond?->nombre ?? 'N/A'; ?></td>
               <td><?php echo $est?->nombre ?? 'N/A'; ?></td>
+              <td><?php echo $lote->ruta_codigo ?? '—'; ?> <?php echo $lote->ruta_nombre ? '(' . $lote->ruta_nombre . ')' : ''; ?></td>
               <td><?php echo $lote->hora_salida; ?></td>
               <td><?php echo date('d/m/Y', strtotime($lote->fecha_registro)); ?></td>
               <td>

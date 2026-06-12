@@ -6,6 +6,12 @@ define('BASE_DIR', __DIR__);
 // Cargar configuración
 require_once BASE_DIR . '/config/config.php';
 
+// Cargar autoloader de Composer (para TCPDF)
+$vendorAutoload = BASE_DIR . '/vendor/autoload.php';
+if (file_exists($vendorAutoload)) {
+    require_once $vendorAutoload;
+}
+
 // Autoloader PSR-4
 spl_autoload_register(function($class) {
     $prefix = 'App\\';
