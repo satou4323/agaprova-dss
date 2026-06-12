@@ -169,7 +169,7 @@
       $('#historicoBloqueosTable').DataTable({
         "responsive": true,
         "lengthChange": false,
-        "pageLength": 5,
+        "pageLength": 9,
         "autoWidth": false,
         "order": [[3, "desc"]], // Ordenar por fecha desc
         "dom": "<'row'<'col-sm-12 col-md-6'B><'col-sm-12 col-md-6'f>>" +
