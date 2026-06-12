@@ -494,8 +494,9 @@ class ReporteService {
             $precio_destino = ($ruta_optima == 1 || $ruta_optima == 3) ? $detalles['precio_sc'] : $detalles['precio_cb'];
             $eficiencia = $detalles['eficiencia_efectiva'];
             
-            // Punto de equilibrio: Precio_necesario = Costo / E_inv_efectivo
-            $sensibilidad['punto_equilibrio_precio'] = $precio_destino > 0 ? round($costo_ruta / $eficiencia, 2) : 0;
+            // Punto de equilibrio: Precio_necesario = Costo / (peso_prom × E_inv_efectivo)
+            $peso_prom_equilibrio = $detalles['peso_promedio'] ?? PESO_DEFAULT;
+            $sensibilidad['punto_equilibrio_precio'] = ($precio_destino > 0 && $peso_prom_equilibrio > 0) ? round($costo_ruta / ($peso_prom_equilibrio * $eficiencia), 2) : 0;
             
             // Punto de equilibrio en cabezas: asumiendo precio mejorado
             $sensibilidad['punto_equilibrio_cabezas'] = 0; // con margen negativo no hay equilibrio en cabezas
@@ -513,10 +514,11 @@ class ReporteService {
         ];
         
         $eficiencia = $detalles['eficiencia_efectiva'];
+        $peso_prom = $detalles['peso_promedio'] ?? PESO_DEFAULT;
         foreach ($rutas_analisis as $r => $info) {
-            if ($eficiencia > 0) {
-                $precio_equilibrio = round($info['costo'] / $eficiencia, 2);
-                $margen_actual = round(($info['precio'] * $eficiencia) - $info['costo'], 2);
+            if ($eficiencia > 0 && $peso_prom > 0) {
+                $precio_equilibrio = round($info['costo'] / ($peso_prom * $eficiencia), 2);
+                $margen_actual = round(($info['precio'] * $peso_prom * $eficiencia) - $info['costo'], 2);
                 $sensibilidad['analisis_ruptura'][] = [
                     'ruta' => $r,
                     'costo' => $info['costo'],

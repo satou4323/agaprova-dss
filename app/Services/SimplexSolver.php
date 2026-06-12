@@ -68,11 +68,11 @@ class SimplexSolver {
             $diagnostico[] = 'Ruta 3 (Ipati-Abapó) bloqueada por clima: probabilidad de lluvia ' . number_format($prob_lluvia * 100, 0) . '% (máx. ' . (LLUVIA_THRESHOLD * 100) . '%).';
         }
 
-        // Calcular márgenes según Modelo Matemático: Mi = (Precio × E_inv_efectivo) – Costo
-        $m1 = ($precio_sc * $eficiencia_efectiva) - $costo_c1;
-        $m2 = ($precio_cb * $eficiencia_efectiva) - $costo_c2;
-        $m3 = ($precio_sc * $eficiencia_efectiva) - $costo_c3;
-        $m4 = ($precio_cb * $eficiencia_efectiva) - $costo_c4;
+        // Calcular márgenes según Modelo Matemático: Mi = (Precio × peso_promedio × E_inv_efectivo) – Costo
+        $m1 = ($precio_sc * $peso_promedio * $eficiencia_efectiva) - $costo_c1;
+        $m2 = ($precio_cb * $peso_promedio * $eficiencia_efectiva) - $costo_c2;
+        $m3 = ($precio_sc * $peso_promedio * $eficiencia_efectiva) - $costo_c3;
+        $m4 = ($precio_cb * $peso_promedio * $eficiencia_efectiva) - $costo_c4;
 
         // Aplicar bloqueos de rutas (con sobreescritura por escenario si aplica)
         $bloqueo_bd_r1 = Bloqueo::estasBloqueada(1) ? 0 : 1;
@@ -124,10 +124,10 @@ class SimplexSolver {
 
         // Verificar márgenes por ruta
         $margen_info = [];
-        $margen_info[] = 'R1 (Samaipata→SC): margen Bs ' . number_format($m1, 2) . ($m1 <= 0 ? ' (pérdida)' : ' (ganancia)');
-        $margen_info[] = 'R2 (Comarapa→CB): margen Bs ' . number_format($m2, 2) . ($m2 <= 0 ? ' (pérdida)' : ' (ganancia)');
-        $margen_info[] = 'R3 (Ipati-Abapó→SC): margen Bs ' . number_format($m3, 2) . ($m3 <= 0 ? ' (pérdida)' : ' (ganancia)');
-        $margen_info[] = 'R4 (Aiquile→CB): margen Bs ' . number_format($m4, 2) . ($m4 <= 0 ? ' (pérdida)' : ' (ganancia)');
+        $margen_info[] = 'R1 (Samaipata→SC): Bs ' . number_format($m1, 2) . '/cab (' . ($m1 <= 0 ? 'pérdida' : 'ganancia') . ')  —  (32 Bs/kg × ' . number_format($peso_promedio, 0) . ' kg × ' . number_format($eficiencia_efectiva, 4) . ' eficiencia) − ' . number_format($costo_c1, 2) . ' Bs costo = Bs ' . number_format($m1, 2);
+        $margen_info[] = 'R2 (Comarapa→CB): Bs ' . number_format($m2, 2) . '/cab (' . ($m2 <= 0 ? 'pérdida' : 'ganancia') . ')  —  (34 Bs/kg × ' . number_format($peso_promedio, 0) . ' kg × ' . number_format($eficiencia_efectiva, 4) . ' eficiencia) − ' . number_format($costo_c2, 2) . ' Bs costo = Bs ' . number_format($m2, 2);
+        $margen_info[] = 'R3 (Ipati-Abapó→SC): Bs ' . number_format($m3, 2) . '/cab (' . ($m3 <= 0 ? 'pérdida' : 'ganancia') . ')  —  (32 Bs/kg × ' . number_format($peso_promedio, 0) . ' kg × ' . number_format($eficiencia_efectiva, 4) . ' eficiencia) − ' . number_format($costo_c3, 2) . ' Bs costo = Bs ' . number_format($m3, 2);
+        $margen_info[] = 'R4 (Aiquile→CB): Bs ' . number_format($m4, 2) . '/cab (' . ($m4 <= 0 ? 'pérdida' : 'ganancia') . ')  —  (34 Bs/kg × ' . number_format($peso_promedio, 0) . ' kg × ' . number_format($eficiencia_efectiva, 4) . ' eficiencia) − ' . number_format($costo_c4, 2) . ' Bs costo = Bs ' . number_format($m4, 2);
 
         // Máscara de disponibilidad
         $disponibles = [
@@ -232,6 +232,8 @@ class SimplexSolver {
             ];
         } else {
             $diagnostico[] = 'No hay rutas disponibles para asignar. No se cumple la restricción de envío obligatorio.';
+            $resultado['detalles']['cabezas'] = $cabezas;
+            $resultado['detalles']['peso_promedio'] = $peso_promedio;
             $resultado['detalles']['diagnostico'] = $diagnostico;
             $resultado['detalles']['margen_info'] = $margen_info;
             $resultado['detalles']['factor_estacion'] = $factor_estacion;
