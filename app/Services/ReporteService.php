@@ -265,143 +265,90 @@ class ReporteService {
 
         if (!empty($datos)) {
             $page_w = 180;
-            $col_w = $page_w;
             $margin_l = 15;
             $card_bg = [252, 252, 249];
             $card_border = [46, 125, 50];
             $label_color = [100, 100, 100];
-            $value_color = [30, 30, 30];
+            $value_color = [40, 40, 40];
             $sep_color = [220, 220, 220];
+            $font_lbl = 7.2;
+            $font_val = 7.2;
 
-            foreach ($datos as $i => $fila) {
-                // Detectar salto de página
-                if ($pdf->GetY() > $pdf->getPageHeight() - $pdf->getFooterMargin() - 45) {
+            foreach ($datos as $fila) {
+                // ── SALTO DE PÁGINA ──
+                if ($pdf->GetY() > $pdf->getPageHeight() - $pdf->getFooterMargin() - 48) {
                     $pdf->AddPage();
                 }
 
                 $x0 = $margin_l;
                 $y0 = $pdf->GetY();
+                $card_h = 27;
 
-                // ── CARD: fondo ──
+                // ── FONDO Y BORDE ──
                 $pdf->SetFillColor($card_bg[0], $card_bg[1], $card_bg[2]);
                 $pdf->SetDrawColor($card_border[0], $card_border[1], $card_border[2]);
-                $pdf->Rect($x0, $y0, $page_w, 26, 'DF');
+                $pdf->Rect($x0, $y0, $page_w, $card_h, 'DF');
 
-                // ── LÍNEA 1: Lote #ID + Fecha + Ruta ──
-                $pdf->SetXY($x0 + 3, $y0 + 2);
+                // ═══════════════ LINEA 1 ═══════════════
+                $pdf->SetXY($x0 + 3, $y0 + 1.5);
                 $pdf->SetFont('helvetica', 'B', 10);
                 $pdf->SetTextColor($card_border[0], $card_border[1], $card_border[2]);
                 $pdf->Cell(0, 5, 'Lote #' . $fila['id'], 0, 0, 'L');
 
                 $pdf->SetFont('helvetica', '', 8);
                 $pdf->SetTextColor($label_color[0], $label_color[1], $label_color[2]);
-                $pdf->Cell(0, 5, 'Fecha: ', 0, 0, 'R');
-                $pdf->SetTextColor($value_color[0], $value_color[1], $value_color[2]);
-                $pdf->Cell(0, 5, date('d/m/Y', strtotime($fila['fecha_registro'])), 0, 1, 'R');
+                $fecha_txt = date('d/m/Y', strtotime($fila['fecha_registro']));
+                $pdf->Cell(0, 5, $fecha_txt, 0, 1, 'R');
 
-                // ── LÍNEA 2: Cabezas | Peso | Condición ──
-                $y1 = $y0 + 8;
+                // ── Separador 1 ──
+                $y1 = $y0 + 7.5;
                 $pdf->SetDrawColor($sep_color[0], $sep_color[1], $sep_color[2]);
                 $pdf->Line($x0 + 3, $y1, $x0 + $page_w - 3, $y1);
 
-                $pdf->SetXY($x0 + 3, $y1 + 1.5);
-                $chunk_w = ($page_w - 6) / 3;
+                // ═══════════════ LINEA 2 ═══════════════
+                // 3 columnas. Cada columna = label + valor concatenado
+                $col_w = ($page_w - 8) / 3;
+                $row_h = 5.5;
+                $y2 = $y1 + 0.8;
 
-                // Cabezas
-                $pdf->SetFont('helvetica', 'B', 7.5);
-                $pdf->SetTextColor($label_color[0], $label_color[1], $label_color[2]);
-                $pdf->Cell($chunk_w, 4.5, 'Cabezas:', 0, 0, 'L');
-                $pdf->SetFont('helvetica', '', 8);
+                $pdf->SetFont('helvetica', '', $font_val);
                 $pdf->SetTextColor($value_color[0], $value_color[1], $value_color[2]);
-                $pdf->Cell($chunk_w, 4.5, $fila['cabezas'], 0, 0, 'L');
 
-                $pdf->SetX($x0 + 3 + $chunk_w);
-                // Peso
-                $pdf->SetFont('helvetica', 'B', 7.5);
-                $pdf->SetTextColor($label_color[0], $label_color[1], $label_color[2]);
-                $pdf->Cell($chunk_w, 4.5, 'Peso Prom:', 0, 0, 'L');
-                $pdf->SetFont('helvetica', '', 8);
-                $pdf->SetTextColor($value_color[0], $value_color[1], $value_color[2]);
-                $pdf->Cell($chunk_w, 4.5, number_format($fila['peso_promedio_kg'], 1) . ' kg', 0, 0, 'L');
+                $pdf->MultiCell($col_w, $row_h, 'Cab: ' . $fila['cabezas'], 0, 'L', false, 0, $x0 + 3, $y2, true, 0, false, true, $row_h, 'M');
+                $pdf->MultiCell($col_w, $row_h, 'Peso: ' . number_format($fila['peso_promedio_kg'], 1) . ' kg', 0, 'L', false, 0, $x0 + 3 + $col_w, $y2, true, 0, false, true, $row_h, 'M');
+                $pdf->MultiCell($col_w, $row_h, 'Cond: ' . $fila['condicion'], 0, 'L', false, 0, $x0 + 3 + $col_w * 2, $y2, true, 0, false, true, $row_h, 'M');
 
-                $pdf->SetX($x0 + 3 + $chunk_w * 2);
-                // Condición
-                $pdf->SetFont('helvetica', 'B', 7.5);
-                $pdf->SetTextColor($label_color[0], $label_color[1], $label_color[2]);
-                $pdf->Cell($chunk_w, 4.5, 'Condicion:', 0, 0, 'L');
-                $pdf->SetFont('helvetica', '', 8);
-                $pdf->SetTextColor($value_color[0], $value_color[1], $value_color[2]);
-                $pdf->Cell($chunk_w, 4.5, $fila['condicion'], 0, 1, 'L');
-
-                // ── LÍNEA 3: Estación | Hora | Mercado ──
-                $y2 = $y0 + 14.5;
-                $pdf->Line($x0 + 3, $y2, $x0 + $page_w - 3, $y2);
-                $pdf->SetXY($x0 + 3, $y2 + 1.5);
-
-                // Estación
-                $pdf->SetFont('helvetica', 'B', 7.5);
-                $pdf->SetTextColor($label_color[0], $label_color[1], $label_color[2]);
-                $pdf->Cell($chunk_w, 4.5, 'Estacion:', 0, 0, 'L');
-                $pdf->SetFont('helvetica', '', 8);
-                $pdf->SetTextColor($value_color[0], $value_color[1], $value_color[2]);
-                $pdf->Cell($chunk_w, 4.5, $fila['estacion'], 0, 0, 'L');
-
-                $pdf->SetX($x0 + 3 + $chunk_w);
-                // Hora
-                $pdf->SetFont('helvetica', 'B', 7.5);
-                $pdf->SetTextColor($label_color[0], $label_color[1], $label_color[2]);
-                $pdf->Cell($chunk_w, 4.5, 'Hora Salida:', 0, 0, 'L');
-                $pdf->SetFont('helvetica', '', 8);
-                $pdf->SetTextColor($value_color[0], $value_color[1], $value_color[2]);
-                $pdf->Cell($chunk_w, 4.5, $fila['hora_salida'], 0, 0, 'L');
-
-                $pdf->SetX($x0 + 3 + $chunk_w * 2);
-                // Mercado
-                $pdf->SetFont('helvetica', 'B', 7.5);
-                $pdf->SetTextColor($label_color[0], $label_color[1], $label_color[2]);
-                $pdf->Cell($chunk_w, 4.5, 'Mercado:', 0, 0, 'L');
-                $pdf->SetFont('helvetica', '', 8);
-                $pdf->SetTextColor($value_color[0], $value_color[1], $value_color[2]);
-                $pdf->Cell($chunk_w, 4.5, $fila['mercado'] ?? '—', 0, 1, 'L');
-
-                // ── LÍNEA 4: Ruta | Precio | Costo Flete ──
-                $y3 = $y0 + 21;
+                // ── Separador 2 ──
+                $y3 = $y2 + $row_h;
                 $pdf->Line($x0 + 3, $y3, $x0 + $page_w - 3, $y3);
-                $pdf->SetXY($x0 + 3, $y3 + 1.5);
 
-                // Ruta
-                $pdf->SetFont('helvetica', 'B', 7.5);
-                $pdf->SetTextColor($label_color[0], $label_color[1], $label_color[2]);
-                $pdf->Cell($chunk_w, 4.5, 'Ruta Asignada:', 0, 0, 'L');
-                $pdf->SetFont('helvetica', '', 8);
-                $pdf->SetTextColor($card_border[0], $card_border[1], $card_border[2]);
-                $pdf->Cell($chunk_w, 4.5, $fila['ruta'] ?? '—', 0, 0, 'L');
+                // ═══════════════ LINEA 3 ═══════════════
+                $y4 = $y3 + 0.8;
 
-                $pdf->SetX($x0 + 3 + $chunk_w);
-                // Precio
-                $pdf->SetFont('helvetica', 'B', 7.5);
-                $pdf->SetTextColor($label_color[0], $label_color[1], $label_color[2]);
-                $pdf->Cell($chunk_w, 4.5, 'Precio/kg:', 0, 0, 'L');
-                $pdf->SetFont('helvetica', '', 8);
-                $pdf->SetTextColor($value_color[0], $value_color[1], $value_color[2]);
+                $pdf->MultiCell($col_w, $row_h, 'Est: ' . $fila['estacion'], 0, 'L', false, 0, $x0 + 3, $y4, true, 0, false, true, $row_h, 'M');
+                $pdf->MultiCell($col_w, $row_h, 'Hora: ' . $fila['hora_salida'], 0, 'L', false, 0, $x0 + 3 + $col_w, $y4, true, 0, false, true, $row_h, 'M');
+                $pdf->MultiCell($col_w, $row_h, 'Mdo: ' . ($fila['mercado'] ?? '—'), 0, 'L', false, 0, $x0 + 3 + $col_w * 2, $y4, true, 0, false, true, $row_h, 'M');
+
+                // ── Separador 3 ──
+                $y5 = $y4 + $row_h;
+                $pdf->Line($x0 + 3, $y5, $x0 + $page_w - 3, $y5);
+
+                // ═══════════════ LINEA 4 ═══════════════
+                $y6 = $y5 + 0.8;
+
+                $ruta_txt = $fila['ruta'] ?? '—';
                 $precio_txt = $fila['precio_kg'] ? 'Bs ' . number_format($fila['precio_kg'], 2) : '—';
-                $pdf->Cell($chunk_w, 4.5, $precio_txt, 0, 0, 'L');
-
-                $pdf->SetX($x0 + 3 + $chunk_w * 2);
-                // Costo Flete
-                $pdf->SetFont('helvetica', 'B', 7.5);
-                $pdf->SetTextColor($label_color[0], $label_color[1], $label_color[2]);
-                $pdf->Cell($chunk_w, 4.5, 'Costo Flete:', 0, 0, 'L');
-                $pdf->SetFont('helvetica', '', 8);
-                $pdf->SetTextColor($value_color[0], $value_color[1], $value_color[2]);
                 $flete_txt = $fila['costo_cabeza'] ? 'Bs ' . number_format($fila['costo_cabeza'], 2) : '—';
-                $pdf->Cell($chunk_w, 4.5, $flete_txt, 0, 1, 'L');
 
-                // Avanzar Y
-                $pdf->SetXY($margin_l, $y0 + 28);
+                $pdf->MultiCell($col_w, $row_h, 'Ruta: ' . $ruta_txt, 0, 'L', false, 0, $x0 + 3, $y6, true, 0, false, true, $row_h, 'M');
+                $pdf->MultiCell($col_w, $row_h, 'Precio: ' . $precio_txt, 0, 'L', false, 0, $x0 + 3 + $col_w, $y6, true, 0, false, true, $row_h, 'M');
+                $pdf->MultiCell($col_w, $row_h, 'Flete: ' . $flete_txt, 0, 'L', false, 0, $x0 + 3 + $col_w * 2, $y6, true, 0, false, true, $row_h, 'M');
+
+                // ── Avanzar Y ──
+                $pdf->SetXY($margin_l, $y0 + $card_h + 1);
             }
 
-            $pdf->Ln(8);
+            $pdf->Ln(6);
 
             // ── RESUMEN DE COSTOS DE FLETE ──
             $pdf->SetFont('helvetica', 'B', 11);
