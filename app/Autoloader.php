@@ -1,0 +1,67 @@
+<?php
+/**
+ * Autoloader - Carga automática de clases del sistema DSS AGAPROVA
+ */
+
+class Autoloader {
+    private static $paths = [];
+
+    /**
+     * Registra el autoloader
+     */
+    public static function register() {
+        spl_autoload_register([self::class, 'load']);
+    }
+
+    /**
+     * Carga una clase automáticamente
+     */
+    public static function load($class) {
+        // Espacios de nombres soportados
+        $namespaces = [
+            'App\\Controllers\\' => APP_PATH . '/Controllers/',
+            'App\\Models\\' => APP_PATH . '/Models/',
+            'App\\Services\\' => APP_PATH . '/Services/',
+        ];
+
+        foreach ($namespaces as $namespace => $path) {
+            if (strpos($class, $namespace) === 0) {
+                $relativePath = str_replace($namespace, '', $class);
+                $file = $path . str_replace('\\', '/', $relativePath) . '.php';
+
+                if (file_exists($file)) {
+                    require_once $file;
+                    return true;
+                }
+            }
+        }
+
+        // Si no tiene namespace, busca en app/
+        $file = APP_PATH . '/' . $class . '.php';
+        if (file_exists($file)) {
+            require_once $file;
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Registra una ruta personalizada
+     */
+    public static function addPath($prefix, $path) {
+        self::$paths[$prefix] = $path;
+    }
+}
+
+// Registra el autoloader
+Autoloader::register();
+
+// Carga clases principales
+require_once APP_PATH . '/Database.php';
+require_once APP_PATH . '/Model.php';
+require_once APP_PATH . '/Controller.php';
+require_once APP_PATH . '/Router.php';
+require_once APP_PATH . '/Session.php';
+require_once APP_PATH . '/Helpers.php';
+require_once APP_PATH . '/Validator.php';
