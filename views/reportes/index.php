@@ -50,7 +50,7 @@
   <div class="card-body p-0">
     <?php if (!empty($datos)): ?>
       <div class="d-none d-md-block">
-      <table class="table table-bordered mb-0">
+      <table id="datosSemanaTable" class="table table-bordered table-striped table-hover table-valign-middle mb-0">
         <thead>
           <tr>
             <th>Lote ID</th>
@@ -99,6 +99,102 @@
     <?php endif; ?>
   </div>
 </div>
+
+<?php if (!empty($datos)): ?>
+<style>
+#datosSemanaTable_wrapper .dataTables_filter input {
+  border-radius: 20px !important;
+  padding-left: 12px !important;
+}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  $('#datosSemanaTable').DataTable({
+    lengthChange: false,
+    responsive: false,
+    autoWidth: true,
+    pagingType: 'full_numbers',
+    pageLength: 10,
+    lengthMenu: [[10, 20, 50, -1], [10, 20, 50, 'Todos']],
+    order: [[0, 'desc']],
+    language: {
+      processing: 'Procesando...',
+      lengthMenu: 'Mostrar _MENU_ registros',
+      zeroRecords: 'No se encontraron resultados',
+      emptyTable: 'Ningún dato disponible en esta tabla',
+      info: 'Mostrando _START_ a _END_ de _TOTAL_ registros',
+      infoEmpty: 'Mostrando 0 a 0 de 0 registros',
+      infoFiltered: '(filtrado de _MAX_ registros totales)',
+      infoPostFix: '',
+      search: '<i class="fas fa-search text-muted mr-1"></i> Buscar:',
+      url: '',
+      thousands: ',',
+      loadingRecords: 'Cargando...',
+      paginate: {
+        first: '<i class="fas fa-angle-double-left"></i>',
+        last: '<i class="fas fa-angle-double-right"></i>',
+        next: '<i class="fas fa-angle-right"></i>',
+        previous: '<i class="fas fa-angle-left"></i>'
+      },
+      aria: {
+        sortAscending: ': Activar para ordenar ascendentemente',
+        sortDescending: ': Activar para ordenar descendentemente'
+      },
+      buttons: {
+        copy: 'Copiar',
+        colvis: 'Columnas',
+        print: 'Imprimir',
+        excel: 'Excel',
+        pdf: 'PDF',
+        csv: 'CSV'
+      }
+    },
+    dom:
+      "<'row m-0 px-3 pt-3'<'col-sm-12 col-md-6'B><'col-sm-12 col-md-6'f>>" +
+      "<'row m-0 px-3'<'col-sm-12'tr>>" +
+      "<'row m-0 px-3 pb-3'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+    buttons: [
+      {
+        extend: 'copy',
+        text: '<i class="fas fa-copy"></i> Copiar',
+        className: 'btn-secondary btn-sm',
+        titleAttr: 'Copiar al portapapeles',
+        exportOptions: {
+          columns: ':visible'
+        }
+      },
+      {
+        extend: 'excel',
+        text: '<i class="fas fa-file-excel"></i> Excel',
+        className: 'btn-success btn-sm',
+        titleAttr: 'Exportar a Excel',
+        exportOptions: {
+          columns: ':visible'
+        }
+      },
+      {
+        extend: 'pdf',
+        text: '<i class="fas fa-file-pdf"></i> PDF',
+        className: 'btn-danger btn-sm',
+        titleAttr: 'Exportar a PDF',
+        exportOptions: {
+          columns: ':visible'
+        }
+      },
+      {
+        extend: 'print',
+        text: '<i class="fas fa-print"></i> Imprimir',
+        className: 'btn-info btn-sm',
+        titleAttr: 'Imprimir tabla',
+        exportOptions: {
+          columns: ':visible'
+        }
+      }
+    ]
+  });
+});
+</script>
+<?php endif; ?>
 
 <div class="card card-outline card-primary">
   <div class="card-header">
