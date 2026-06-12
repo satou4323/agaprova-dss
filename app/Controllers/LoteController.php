@@ -84,8 +84,9 @@ class LoteController extends Controller {
             // Persistir resultados completos en resultados_optimizacion
             if ($resultado['factible']) {
                 $this->db->query(
-                    'INSERT INTO resultados_optimizacion (fecha_calculo, x1, x2, x3, x4, ganancia_total, factible, datos_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                    'INSERT INTO resultados_optimizacion (lote_id, fecha_calculo, x1, x2, x3, x4, ganancia_total, factible, datos_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
                     [
+                        $lote->id,
                         date('Y-m-d'),
                         $resultado['x1'],
                         $resultado['x2'],
