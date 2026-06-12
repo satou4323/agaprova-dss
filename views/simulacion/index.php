@@ -20,6 +20,11 @@
         <div class="card-body d-flex flex-column">
           <h5><?php echo $esc->nombre; ?></h5>
           <p class="text-muted flex-grow-1"><?php echo $esc->descripcion; ?></p>
+          <?php if (!empty($esc->created_at)): ?>
+            <div style="font-size: 0.75rem; color: #aaa; margin-bottom: 6px;">
+              <i class="far fa-calendar-alt mr-1"></i> Creado: <?php echo date('d/m/Y', strtotime($esc->created_at)); ?>
+            </div>
+          <?php endif; ?>
           <div class="bg-light p-3 rounded mb-3 small">
             <div><strong>Estación:</strong> <?php echo $datos['estacion_id'] == 1 ? 'Seca' : ($datos['estacion_id'] == 2 ? 'Lluviosa' : 'Transición'); ?></div>
             <div><strong>Condición:</strong> <?php echo $datos['condicion_id'] == 1 ? 'Buena' : ($datos['condicion_id'] == 2 ? 'Regular' : 'Invernal'); ?></div>

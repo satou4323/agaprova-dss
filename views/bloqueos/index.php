@@ -126,6 +126,8 @@
             <th>Código</th>
             <th>Estado Registrado</th>
             <th>Fecha de Movimiento</th>
+            <th>Fin de Bloqueo</th>
+            <th>Registrado</th>
           </tr>
         </thead>
         <tbody>
@@ -145,6 +147,16 @@
                 </span>
               </td>
               <td class="align-middle"><i class="far fa-calendar-alt text-muted mr-1"></i> <?php echo date('d/m/Y H:i', strtotime($bloqueo['fecha_inicio'])); ?></td>
+              <td class="align-middle">
+                <?php if (!empty($bloqueo['fecha_fin'])): ?>
+                  <i class="far fa-calendar-check text-muted mr-1"></i> <?php echo date('d/m/Y H:i', strtotime($bloqueo['fecha_fin'])); ?>
+                <?php else: ?>
+                  <span class="text-muted" style="font-size: 0.85rem;">—</span>
+                <?php endif; ?>
+              </td>
+              <td class="align-middle text-muted" style="font-size: 0.85rem;">
+                <i class="far fa-clock mr-1"></i> <?php echo date('d/m/Y H:i', strtotime($bloqueo['created_at'])); ?>
+              </td>
             </tr>
           <?php endforeach; ?>
         </tbody>

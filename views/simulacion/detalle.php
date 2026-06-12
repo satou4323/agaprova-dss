@@ -7,6 +7,11 @@
 <div class="callout" style="background: linear-gradient(90deg, <?php echo COLOR_PRIMARY; ?>, <?php echo COLOR_SECONDARY; ?>); color: white;">
   <h5 style="color: white;"><?php echo $escenario['nombre']; ?></h5>
   <p style="color: white; opacity: 0.9; margin: 0;"><?php echo $escenario['descripcion']; ?></p>
+  <?php if (!empty($escenario['created_at'])): ?>
+    <div style="font-size: 0.75rem; opacity: 0.7; margin-top: 4px;">
+      <i class="far fa-calendar-alt mr-1"></i> Creado: <?php echo date('d/m/Y H:i', strtotime($escenario['created_at'])); ?>
+    </div>
+  <?php endif; ?>
 </div>
 
 <div class="row">

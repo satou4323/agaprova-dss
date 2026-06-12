@@ -34,8 +34,18 @@
               <td><strong><?php echo $lote->id; ?></strong></td>
               <td><?php echo $lote->cabezas; ?></td>
               <td><?php echo number_format($lote->peso_promedio_kg, 2); ?> kg</td>
-              <td><?php echo $cond?->nombre ?? 'N/A'; ?></td>
-              <td><?php echo $est?->nombre ?? 'N/A'; ?></td>
+              <td>
+                <?php echo $cond?->nombre ?? 'N/A'; ?>
+                <?php if ($cond && !empty($cond->descripcion)): ?>
+                  <br><small style="font-size: 0.7rem; color: #888; font-style: italic;"><?php echo htmlspecialchars($cond->descripcion); ?></small>
+                <?php endif; ?>
+              </td>
+              <td>
+                <?php echo $est?->nombre ?? 'N/A'; ?>
+                <?php if ($est && !empty($est->descripcion)): ?>
+                  <br><small style="font-size: 0.7rem; color: #888; font-style: italic;"><?php echo htmlspecialchars($est->descripcion); ?></small>
+                <?php endif; ?>
+              </td>
               <td><?php echo $lote->ruta_codigo ?? '—'; ?> <?php echo $lote->ruta_nombre ? '(' . $lote->ruta_nombre . ')' : ''; ?></td>
               <td><?php echo $lote->hora_salida; ?></td>
               <td><?php echo date('d/m/Y', strtotime($lote->fecha_registro)); ?></td>
@@ -62,8 +72,8 @@
               <div style="font-size: 13px; line-height: 1.7;">
                 <div><span class="text-muted">Cabezas:</span> <?php echo $lote->cabezas; ?></div>
                 <div><span class="text-muted">Peso:</span> <?php echo number_format($lote->peso_promedio_kg, 2); ?> kg</div>
-                <div><span class="text-muted">Condición:</span> <?php echo $cond?->nombre ?? 'N/A'; ?></div>
-                <div><span class="text-muted">Estación:</span> <?php echo $est?->nombre ?? 'N/A'; ?></div>
+                <div><span class="text-muted">Condición:</span> <?php echo $cond?->nombre ?? 'N/A'; ?><?php if ($cond && !empty($cond->descripcion)): ?> <small style="color: #888;">(<?php echo htmlspecialchars($cond->descripcion); ?>)</small><?php endif; ?></div>
+                <div><span class="text-muted">Estación:</span> <?php echo $est?->nombre ?? 'N/A'; ?><?php if ($est && !empty($est->descripcion)): ?> <small style="color: #888;">(<?php echo htmlspecialchars($est->descripcion); ?>)</small><?php endif; ?></div>
                 <div><span class="text-muted">Salida:</span> <?php echo $lote->hora_salida; ?></div>
                 <div><span class="text-muted">Fecha:</span> <?php echo date('d/m/Y', strtotime($lote->fecha_registro)); ?></div>
               </div>

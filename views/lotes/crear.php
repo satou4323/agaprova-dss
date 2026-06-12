@@ -35,27 +35,29 @@
             <div class="col-md-6">
               <div class="form-group">
                 <label class="text-muted" style="font-size: 0.85rem; font-weight: 500;">Condición del Ganado</label>
-                <select name="condicion_id" class="form-control form-control-sm" required>
+                <select name="condicion_id" class="form-control form-control-sm" required onchange="actualizarDescCondicion(this)">
                   <option value="">-- Seleccione --</option>
                   <?php foreach ($condiciones as $cond): ?>
-                    <option value="<?php echo $cond->id; ?>">
+                    <option value="<?php echo $cond->id; ?>" data-desc="<?php echo htmlspecialchars($cond->descripcion ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                       <?php echo $cond->nombre; ?> (Factor: <?php echo $cond->factor; ?>)
                     </option>
                   <?php endforeach; ?>
                 </select>
+                <small id="condicion_desc" class="text-muted" style="font-size: 0.75rem; font-style: italic; display: block; margin-top: 3px;"></small>
               </div>
             </div>
             <div class="col-md-6">
               <div class="form-group">
                 <label class="text-muted" style="font-size: 0.85rem; font-weight: 500;">Estación</label>
-                <select name="estacion_id" class="form-control form-control-sm" required>
+                <select name="estacion_id" class="form-control form-control-sm" required onchange="actualizarDescEstacion(this)">
                   <option value="">-- Seleccione --</option>
                   <?php foreach ($estaciones as $est): ?>
-                    <option value="<?php echo $est->id; ?>">
+                    <option value="<?php echo $est->id; ?>" data-desc="<?php echo htmlspecialchars($est->descripcion ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                       <?php echo $est->nombre; ?> (Factor: <?php echo $est->factor; ?>)
                     </option>
                   <?php endforeach; ?>
                 </select>
+                <small id="estacion_desc" class="text-muted" style="font-size: 0.75rem; font-style: italic; display: block; margin-top: 3px;"></small>
               </div>
             </div>
           </div>
@@ -93,8 +95,16 @@
       </div>
     </div>
 
-    <!-- Auto-detección de condición "vaca flaca" según mes -->
     <script>
+    function actualizarDescCondicion(sel) {
+      var desc = sel.options[sel.selectedIndex]?.getAttribute('data-desc') || '';
+      document.getElementById('condicion_desc').textContent = desc;
+    }
+    function actualizarDescEstacion(sel) {
+      var desc = sel.options[sel.selectedIndex]?.getAttribute('data-desc') || '';
+      document.getElementById('estacion_desc').textContent = desc;
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
       var mes = new Date().getMonth() + 1;
       if (mes >= 5 && mes <= 8) {
@@ -108,6 +118,10 @@
           }
         }
       }
+      var selCond = document.querySelector('select[name="condicion_id"]');
+      if (selCond) actualizarDescCondicion(selCond);
+      var selEst = document.querySelector('select[name="estacion_id"]');
+      if (selEst) actualizarDescEstacion(selEst);
     });
     </script>
   </div>
