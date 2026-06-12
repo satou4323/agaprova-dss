@@ -10,6 +10,7 @@
   }
   $promedioTiempo = $totalRutas > 0 ? ($sumaTiempos / $totalRutas) : 0;
 ?>
+<div class="mt-2"></div>
 <!-- Indicadores KPI -->
 <div class="row mt-4 mb-3">
   <div class="col-lg-4 col-6">

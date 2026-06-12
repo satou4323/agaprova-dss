@@ -1,6 +1,7 @@
 <?php
 use App\Services\ClimaService;
 ?>
+<div class="mt-2"></div>
 <div class="row mt-4">
   <div class="col-lg-3 col-6">
     <div class="small-box" style="background: linear-gradient(135deg, #2E7D32 0%, #1B5E20 100%); box-shadow: 0 2px 6px rgba(46,125,50,0.25);">
