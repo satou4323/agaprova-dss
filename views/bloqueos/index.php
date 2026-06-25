@@ -11,97 +11,107 @@
   $promedioTiempo = $totalRutas > 0 ? ($sumaTiempos / $totalRutas) : 0;
 ?>
 <div class="mt-3"></div>
-<!-- Indicadores KPI -->
+
+<!-- KPI -->
 <div class="row mt-4 mb-3">
   <div class="col-lg-4 col-6">
     <div class="small-box" style="background: linear-gradient(135deg, #388E3C 0%, #2E7D32 100%); box-shadow: 0 2px 6px rgba(56,142,60,0.25);">
       <div class="inner">
-        <h3 style="color: #fff; font-size: 1.6rem; font-weight: 700;"><?php echo $rutasActivas; ?></h3>
-        <p style="color: rgba(255,255,255,0.85); font-size: 0.85rem; margin-bottom: 0;">Rutas Libres y Activas</p>
+        <h3 style="color:#fff; font-size:1.6rem; font-weight:700;"><?php echo $rutasActivas; ?></h3>
+        <p style="color:rgba(255,255,255,0.85); font-size:0.85rem; margin-bottom:0;">Rutas Libres y Activas</p>
       </div>
-      <div class="icon">
-        <i class="fas fa-route" style="color: rgba(255,255,255,0.2); font-size: 70px;"></i>
-      </div>
+      <div class="icon"><i class="fas fa-route" style="color:rgba(255,255,255,0.2); font-size:70px;"></i></div>
     </div>
   </div>
   <div class="col-lg-4 col-6">
     <div class="small-box" style="background: linear-gradient(135deg, #C62828 0%, #B71C1C 100%); box-shadow: 0 2px 6px rgba(198,40,40,0.25);">
       <div class="inner">
-        <h3 style="color: #fff; font-size: 1.6rem; font-weight: 700;"><?php echo $rutasBloqueadas; ?></h3>
-        <p style="color: rgba(255,255,255,0.85); font-size: 0.85rem; margin-bottom: 0;">Rutas Bloqueadas</p>
+        <h3 style="color:#fff; font-size:1.6rem; font-weight:700;"><?php echo $rutasBloqueadas; ?></h3>
+        <p style="color:rgba(255,255,255,0.85); font-size:0.85rem; margin-bottom:0;">Rutas Bloqueadas</p>
       </div>
-      <div class="icon">
-        <i class="fas fa-ban" style="color: rgba(255,255,255,0.2); font-size: 70px;"></i>
-      </div>
+      <div class="icon"><i class="fas fa-ban" style="color:rgba(255,255,255,0.2); font-size:70px;"></i></div>
     </div>
   </div>
   <div class="col-lg-4 col-12">
     <div class="small-box" style="background: linear-gradient(135deg, #1565C0 0%, #0D47A1 100%); box-shadow: 0 2px 6px rgba(21,101,192,0.25);">
       <div class="inner">
-        <h3 style="color: #fff; font-size: 1.6rem; font-weight: 700;"><?php echo number_format($promedioTiempo, 1); ?><sup style="font-size: 20px">h</sup></h3>
-        <p style="color: rgba(255,255,255,0.85); font-size: 0.85rem; margin-bottom: 0;">Tiempo Promedio (Global)</p>
+        <h3 style="color:#fff; font-size:1.6rem; font-weight:700;"><?php echo number_format($promedioTiempo, 1); ?><sup style="font-size:20px">h</sup></h3>
+        <p style="color:rgba(255,255,255,0.85); font-size:0.85rem; margin-bottom:0;">Tiempo Promedio (Global)</p>
       </div>
-      <div class="icon">
-        <i class="far fa-clock" style="color: rgba(255,255,255,0.2); font-size: 70px;"></i>
-      </div>
+      <div class="icon"><i class="far fa-clock" style="color:rgba(255,255,255,0.2); font-size:70px;"></i></div>
     </div>
   </div>
 </div>
 
+<!-- Card Rutas -->
 <div class="card card-outline card-primary">
-  <div class="card-header">
-    <h3 class="card-title"><i class="fas fa-map-marked-alt text-primary mr-1"></i> Estado Detallado de Rutas</h3>
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h3 class="card-title"><i class="fas fa-route text-primary mr-1"></i> Rutas</h3>
+    <a href="<?php echo BASE_URL; ?>/bloqueo/crear" class="btn btn-primary btn-sm">
+      <i class="fas fa-plus mr-1"></i> Añadir Ruta
+    </a>
   </div>
   <div class="card-body">
     <div class="row">
       <?php foreach ($rutas as $ruta): ?>
-        <?php 
+        <?php
           $isBloqueado = ($ruta->bloqueado == 1);
-          $bgClass = $isBloqueado ? 'bg-danger' : 'bg-success';
-          $iconClass = $isBloqueado ? 'fas fa-lock' : 'fas fa-road';
+          $bgClass    = $isBloqueado ? 'bg-danger' : 'bg-success';
+          $iconClass  = $isBloqueado ? 'fas fa-lock' : 'fas fa-road';
           $statusText = $isBloqueado ? 'BLOQUEADA' : 'ACTIVA';
         ?>
         <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
-          <!-- Widget: user widget style 1 -->
-          <div class="card card-widget widget-user shadow-sm h-100" style="margin-bottom: 0;">
-            <!-- Add the bg color to the header using any of the bg-* classes -->
-            <div class="widget-user-header text-white <?php echo $bgClass; ?>" style="padding: 0.5rem 0.8rem; height: 60px;">
-              <h3 class="widget-user-username font-weight-bold text-right" style="font-size: 1rem; text-shadow: 1px 1px 2px rgba(0,0,0,0.3); margin-bottom: 2px;"><?php echo $ruta->codigo; ?></h3>
-              <h5 class="widget-user-desc text-right" style="font-size: 0.75rem; font-weight: 500;"><i class="<?php echo $iconClass; ?> mr-1"></i> <?php echo $statusText; ?></h5>
+          <div class="card card-widget widget-user shadow-sm h-100" style="margin-bottom:0;">
+            <div class="widget-user-header text-white <?php echo $bgClass; ?>" style="padding:0.5rem 0.8rem; height:60px;">
+              <h3 class="widget-user-username font-weight-bold text-right" style="font-size:1rem; text-shadow:1px 1px 2px rgba(0,0,0,0.3); margin-bottom:2px;">
+                <?php echo $ruta->codigo; ?>
+              </h3>
+              <h5 class="widget-user-desc text-right" style="font-size:0.75rem; font-weight:500;">
+                <i class="<?php echo $iconClass; ?> mr-1"></i> <?php echo $statusText; ?>
+              </h5>
             </div>
-            <div class="widget-user-image" style="top: 35px;">
-              <div class="elevation-2 d-flex align-items-center justify-content-center" style="background: white; border-radius: 50%; width: 50px; height: 50px; border: 2px solid #fff; font-size: 1.2rem; color: <?php echo $isBloqueado ? '#dc3545' : '#28a745'; ?>; margin-left: -25px;">
+            <div class="widget-user-image" style="top:35px;">
+              <div class="elevation-2 d-flex align-items-center justify-content-center"
+                   style="background:white; border-radius:50%; width:50px; height:50px; border:2px solid #fff; font-size:1.2rem; color:<?php echo $isBloqueado ? '#dc3545' : '#28a745'; ?>; margin-left:-25px;">
                 <i class="<?php echo $iconClass; ?>"></i>
               </div>
             </div>
-            <div class="card-footer bg-white d-flex flex-column justify-content-between" style="padding: 30px 15px 10px 15px; flex-grow: 1;">
+            <div class="card-footer bg-white d-flex flex-column justify-content-between" style="padding:30px 15px 10px 15px; flex-grow:1;">
               <div>
-                <h5 class="text-center font-weight-bold" style="color: #333; margin-bottom: 8px; font-size: 0.95rem;"><?php echo $ruta->nombre; ?></h5>
+                <h5 class="text-center font-weight-bold" style="color:#333; margin-bottom:8px; font-size:0.95rem;">
+                  <?php echo $ruta->nombre; ?>
+                </h5>
                 <ul class="list-group list-group-unbordered mb-2">
-                  <li class="list-group-item" style="padding: 0.25rem 0; border-top: none;">
-                    <b style="font-size: 0.8rem;">Trayecto</b> <a class="float-right text-muted" style="font-size: 0.8rem;"><?php echo $ruta->origen; ?> &rarr; <?php echo $ruta->destino; ?></a>
+                  <li class="list-group-item" style="padding:0.25rem 0; border-top:none;">
+                    <b style="font-size:0.8rem;">Trayecto</b>
+                    <span class="float-right text-muted" style="font-size:0.8rem;"><?php echo $ruta->origen; ?> &rarr; <?php echo $ruta->destino; ?></span>
                   </li>
-                  <li class="list-group-item" style="padding: 0.25rem 0;">
-                    <b style="font-size: 0.8rem;">Tiempo</b> <a class="float-right text-muted" style="font-size: 0.8rem;"><?php echo number_format($ruta->tiempo_horas, 1); ?>h</a>
+                  <li class="list-group-item" style="padding:0.25rem 0;">
+                    <b style="font-size:0.8rem;"><i class="fas fa-clock mr-1 text-info"></i> Tiempo a destino</b>
+                    <span class="float-right text-muted font-weight-bold" style="font-size:0.8rem;"><?php echo number_format($ruta->tiempo_horas, 1); ?> h</span>
                   </li>
-                  <li class="list-group-item" style="padding: 0.25rem 0; border-bottom: none;">
-                    <b style="font-size: 0.8rem;">Vía</b> <a class="float-right text-muted" style="font-size: 0.8rem;"><?php echo $ruta->tipo_via; ?></a>
+                  <li class="list-group-item" style="padding:0.25rem 0; border-bottom:none;">
+                    <b style="font-size:0.8rem;">Vía</b>
+                    <span class="float-right text-muted" style="font-size:0.8rem;"><?php echo $ruta->tipo_via; ?></span>
                   </li>
                 </ul>
               </div>
 
+              <!-- Toggle bloqueo -->
               <form method="POST" action="<?php echo BASE_URL; ?>/bloqueo/toggle" class="mt-auto ruta-toggle-form">
                 <input type="hidden" name="ruta_id" value="<?php echo $ruta->id; ?>">
-                <input type="hidden" name="csrf_token" value="<?php echo $csrf; ?>">
+                <input type="hidden" name="<?php echo CSRF_TOKEN_NAME; ?>" value="<?php echo $csrf; ?>">
                 <?php if ($isBloqueado): ?>
                   <input type="hidden" name="accion" value="desactivar">
-                  <button type="submit" class="btn btn-outline-success btn-sm btn-block font-weight-bold" style="border-width: 1px; padding: 2px 10px; font-size: 0.8rem;">
-                    <i class="fas fa-unlock mr-1"></i> Desbloquear Ruta
+                  <button type="submit" class="btn btn-outline-success btn-sm btn-block font-weight-bold"
+                          style="border-width:1px; padding:4px 10px; font-size:0.8rem;">
+                    <i class="fas fa-lock mr-1"></i> ✓ Bloqueada — Click para Activar
                   </button>
                 <?php else: ?>
                   <input type="hidden" name="accion" value="activar">
-                  <button type="submit" class="btn btn-outline-danger btn-sm btn-block font-weight-bold" style="border-width: 1px; padding: 2px 10px; font-size: 0.8rem;">
-                    <i class="fas fa-ban mr-1"></i> Bloquear Ruta
+                  <button type="submit" class="btn btn-outline-danger btn-sm btn-block font-weight-bold"
+                          style="border-width:1px; padding:4px 10px; font-size:0.8rem;">
+                    <i class="fas fa-lock-open mr-1"></i> ✗ Activa — Click para Bloquear
                   </button>
                 <?php endif; ?>
               </form>
@@ -113,6 +123,7 @@
   </div>
 </div>
 
+<!-- Histórico -->
 <?php if (!empty($bloqueos)): ?>
   <div class="card card-outline card-primary mt-3">
     <div class="card-header">
@@ -132,30 +143,35 @@
         </thead>
         <tbody>
           <?php foreach ($bloqueos as $bloqueo): ?>
-            <?php 
+            <?php
               $isBloqHist = ($bloqueo['activo'] == 1);
               $badgeClass = $isBloqHist ? 'badge-danger' : 'badge-success';
-              $iconHist = $isBloqHist ? 'fa-ban' : 'fa-check-circle';
-              $textHist = $isBloqHist ? 'Bloqueada' : 'Desbloqueada';
+              $iconHist   = $isBloqHist ? 'fa-ban' : 'fa-check-circle';
+              $textHist   = $isBloqHist ? 'Bloqueada' : 'Desbloqueada';
             ?>
             <tr>
               <td class="align-middle font-weight-bold text-dark"><?php echo $bloqueo['nombre']; ?></td>
               <td class="align-middle text-muted"><?php echo $bloqueo['codigo']; ?></td>
               <td class="align-middle">
-                <span class="badge <?php echo $badgeClass; ?> p-2" style="font-size: 0.85rem;">
+                <span class="badge <?php echo $badgeClass; ?> p-2" style="font-size:0.85rem;">
                   <i class="fas <?php echo $iconHist; ?> mr-1"></i> <?php echo $textHist; ?>
                 </span>
               </td>
-              <td class="align-middle"><i class="far fa-calendar-alt text-muted mr-1"></i> <?php echo date('d/m/Y H:i', strtotime($bloqueo['fecha_inicio'])); ?></td>
+              <td class="align-middle">
+                <i class="far fa-calendar-alt text-muted mr-1"></i>
+                <?php echo date('d/m/Y H:i', strtotime($bloqueo['fecha_inicio'])); ?>
+              </td>
               <td class="align-middle">
                 <?php if (!empty($bloqueo['fecha_fin'])): ?>
-                  <i class="far fa-calendar-check text-muted mr-1"></i> <?php echo date('d/m/Y H:i', strtotime($bloqueo['fecha_fin'])); ?>
+                  <i class="far fa-calendar-check text-muted mr-1"></i>
+                  <?php echo date('d/m/Y H:i', strtotime($bloqueo['fecha_fin'])); ?>
                 <?php else: ?>
-                  <span class="text-muted" style="font-size: 0.85rem;">—</span>
+                  <span class="text-muted" style="font-size:0.85rem;">—</span>
                 <?php endif; ?>
               </td>
-              <td class="align-middle text-muted" style="font-size: 0.85rem;">
-                <i class="far fa-clock mr-1"></i> <?php echo date('d/m/Y H:i', strtotime($bloqueo['created_at'])); ?>
+              <td class="align-middle text-muted" style="font-size:0.85rem;">
+                <i class="far fa-clock mr-1"></i>
+                <?php echo date('d/m/Y H:i', strtotime($bloqueo['created_at'])); ?>
               </td>
             </tr>
           <?php endforeach; ?>
@@ -165,73 +181,67 @@
   </div>
 <?php endif; ?>
 
-<!-- SweetAlert2 y DataTables (locales) -->
+<!-- SweetAlert2 -->
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/adminlte/plugins/sweetalert2/sweetalert2.min.css">
 <script src="<?php echo BASE_URL; ?>/assets/adminlte/plugins/sweetalert2/sweetalert2.all.min.js"></script>
 
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    // 1. Inicializar DataTables
-    if (typeof jQuery !== 'undefined' && $.fn.DataTable) {
-      $('#historicoBloqueosTable').DataTable({
-        "responsive": true,
-        "lengthChange": false,
-        "pageLength": 9,
-        "autoWidth": false,
-        "order": [[3, "desc"]], // Ordenar por fecha desc
-        "dom": "<'row'<'col-sm-12 col-md-6'B><'col-sm-12 col-md-6'f>>" +
-               "<'row'<'col-sm-12'tr>>" +
-               "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
-        "buttons": [
-          { extend: 'csvHtml5', text: '<i class="fas fa-file-csv"></i> CSV', className: 'btn btn-success btn-sm' },
-          { extend: 'pdfHtml5', text: '<i class="fas fa-file-pdf"></i> PDF', className: 'btn btn-danger btn-sm' },
-          { extend: 'print', text: '<i class="fas fa-print"></i> Imprimir', className: 'btn btn-info btn-sm' }
-        ],
-        "language": {
-          "search": "Buscar:",
-          "zeroRecords": "No se encontraron registros",
-          "info": "Mostrando _START_ a _END_ de _TOTAL_ registros",
-          "infoEmpty": "Mostrando 0 registros",
-          "infoFiltered": "(filtrado de _MAX_ totales)",
-          "paginate": { "first": "Primero", "last": "Último", "next": "Siguiente", "previous": "Anterior" }
-        }
-      });
-    }
+document.addEventListener('DOMContentLoaded', function () {
 
-    // 2. Interceptar el formulario para mostrar alerta visual antes del envío
-    const forms = document.querySelectorAll('.ruta-toggle-form');
-    forms.forEach(form => {
-      form.addEventListener('submit', function(e) {
-        // No prevenimos el envío, solo disparamos la alerta de SweetAlert para que el usuario la vea
-        const Toast = Swal.mixin({
-          toast: true,
-          position: 'top-end',
-          showConfirmButton: false,
-          timer: 3000,
-          timerProgressBar: true
-        });
-        const accion = form.querySelector('input[name="accion"]').value;
-        if(accion === 'activar') {
-           Toast.fire({ icon: 'error', title: 'Bloqueando ruta...' });
-        } else {
-           Toast.fire({ icon: 'success', title: 'Desbloqueando ruta...' });
-        }
-      });
+  // DataTables
+  if (typeof jQuery !== 'undefined' && $.fn.DataTable) {
+    $('#historicoBloqueosTable').DataTable({
+      responsive: true,
+      lengthChange: false,
+      pageLength: 9,
+      autoWidth: false,
+      order: [[3, 'desc']],
+      dom: "<'row'<'col-sm-12 col-md-6'B><'col-sm-12 col-md-6'f>>" +
+           "<'row'<'col-sm-12'tr>>" +
+           "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+      buttons: [
+        { extend: 'csvHtml5', text: '<i class="fas fa-file-csv"></i> CSV',      className: 'btn btn-success btn-sm' },
+        { extend: 'pdfHtml5', text: '<i class="fas fa-file-pdf"></i> PDF',      className: 'btn btn-danger btn-sm' },
+        { extend: 'print',    text: '<i class="fas fa-print"></i> Imprimir',    className: 'btn btn-info btn-sm' }
+      ],
+      language: {
+        search: 'Buscar:',
+        zeroRecords: 'No se encontraron registros',
+        info: 'Mostrando _START_ a _END_ de _TOTAL_ registros',
+        infoEmpty: 'Mostrando 0 registros',
+        infoFiltered: '(filtrado de _MAX_ totales)',
+        paginate: { first: 'Primero', last: 'Último', next: 'Siguiente', previous: 'Anterior' }
+      }
     });
+  }
 
-    // 3. Revisar si hay mensaje de éxito desde PHP
-    <?php if(\App\Session::hasFlash('success')): ?>
+  // Toast al hacer toggle
+  const forms = document.querySelectorAll('.ruta-toggle-form');
+  forms.forEach(function(form) {
+    form.addEventListener('submit', function() {
       const Toast = Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 3000,
-        timerProgressBar: true
+        toast: true, position: 'top-end',
+        showConfirmButton: false, timer: 3000, timerProgressBar: true
       });
-      Toast.fire({
-        icon: 'success',
-        title: '<?php echo \App\Session::flash('success'); ?>'
-      });
-    <?php endif; ?>
+      const accion = form.querySelector('input[name="accion"]').value;
+      if (accion === 'activar') {
+        Toast.fire({ icon: 'error', title: 'Bloqueando ruta...' });
+      } else {
+        Toast.fire({ icon: 'success', title: 'Desbloqueando ruta...' });
+      }
+    });
   });
+
+  // Flash de éxito
+  <?php if(\App\Session::hasFlash('success')): ?>
+    Swal.mixin({
+      toast: true, position: 'top-end',
+      showConfirmButton: false, timer: 3000, timerProgressBar: true
+    }).fire({
+      icon: 'success',
+      title: '<?php echo \App\Session::flash('success'); ?>'
+    });
+  <?php endif; ?>
+
+});
 </script>

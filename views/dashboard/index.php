@@ -84,35 +84,48 @@ use App\Services\ClimaService;
       </div>
     </div>
 
+    <!-- CAMBIO 7+8: Reemplaza el card "Último Lote" por tabla de últimos 5 lotes -->
     <div class="card card-outline card-primary">
-      <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-boxes"></i> Último Lote Registrado</h3>
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h3 class="card-title"><i class="fas fa-boxes mr-1 text-primary"></i> Últimos Lotes Registrados</h3>
+        <a href="<?php echo BASE_URL; ?>/lote/index" class="btn btn-sm btn-outline-primary">Ver todos</a>
       </div>
       <div class="card-body p-0">
-        <?php if ($ultimo_lote): ?>
-          <table class="table table-borderless table-sm mb-0">
+        <?php if (!empty($ultimos_lotes)): ?>
+          <table class="table table-sm table-striped mb-0">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Cabezas</th>
+                <th>Peso Prom.</th>
+                <th>Ruta Asignada</th>
+                <th>Fecha</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
             <tbody>
-              <tr>
-                <td style="width: 50%; padding-left: 1.15rem;"><strong>Cabezas:</strong></td>
-                <td><?php echo $ultimo_lote->cabezas; ?></td>
-              </tr>
-              <tr>
-                <td style="padding-left: 1.15rem;"><strong>Peso Promedio:</strong></td>
-                <td><?php echo number_format($ultimo_lote->peso_promedio_kg, 2); ?> kg</td>
-              </tr>
-              <tr>
-                <td style="padding-left: 1.15rem;"><strong>Hora de Salida:</strong></td>
-                <td><?php echo $ultimo_lote->hora_salida; ?></td>
-              </tr>
-              <tr>
-                <td style="padding-left: 1.15rem;"><strong>Fecha Registro:</strong></td>
-                <td><?php echo date('d/m/Y', strtotime($ultimo_lote->fecha_registro)); ?></td>
-              </tr>
+              <?php foreach ($ultimos_lotes as $lote): ?>
+                <tr>
+                  <td><strong><?php echo $lote->id; ?></strong></td>
+                  <td><?php echo $lote->cabezas; ?></td>
+                  <td><?php echo number_format($lote->peso_promedio_kg, 2); ?> kg</td>
+                  <td>
+                    <?php if ($lote->ruta_codigo): ?>
+                      <span class="badge badge-primary"><?php echo $lote->ruta_codigo; ?></span>
+                      <small class="text-muted"><?php echo $lote->ruta_nombre; ?></small>
+                    <?php else: ?>
+                      <span class="text-muted">—</span>
+                    <?php endif; ?>
+                  </td>
+                  <td><?php echo date('d/m/Y', strtotime($lote->fecha_registro)); ?></td>
+                  <td><span class="badge badge-success">Activo</span></td>
+                </tr>
+              <?php endforeach; ?>
             </tbody>
           </table>
         <?php else: ?>
           <div class="p-3">
-            <p style="color: #999;">Sin lotes registrados</p>
+            <p style="color: #999; margin: 0;">Sin lotes registrados</p>
           </div>
         <?php endif; ?>
       </div>
@@ -156,7 +169,7 @@ use App\Services\ClimaService;
 
     <div class="card card-outline card-danger">
       <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-ban"></i> Rutas Bloqueadas</h3>
+        <h3 class="card-title"><i class="fas fa-route mr-1"></i> Estado de Rutas</h3>
       </div>
       <div class="card-body p-0">
         <?php

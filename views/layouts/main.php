@@ -193,6 +193,14 @@
       <li class="nav-item d-none d-sm-inline-block">
         <a href="<?php echo BASE_URL; ?>/dashboard/index" class="nav-link">Dashboard</a>
       </li>
+      <?php if (!empty($page_title) && $page_title !== 'Dashboard'): ?>
+      <li class="nav-item d-none d-sm-inline-block">
+        <span class="nav-link text-muted">/</span>
+      </li>
+      <li class="nav-item d-none d-sm-inline-block">
+        <a href="#" class="nav-link font-weight-bold text-dark"><?php echo $page_title; ?></a>
+      </li>
+      <?php endif; ?>
     </ul>
 
     <ul class="navbar-nav ml-auto">
@@ -261,8 +269,8 @@
           </li>
           <li class="nav-item">
             <a href="<?php echo BASE_URL; ?>/bloqueo/index" class="nav-link">
-              <i class="nav-icon fas fa-ban"></i>
-              <p>Bloqueos de Ruta</p>
+              <i class="nav-icon fas fa-route"></i>
+              <p>Rutas</p>
             </a>
           </li>
           <li class="nav-item">

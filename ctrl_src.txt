@@ -1,0 +1,87 @@
+<?php\
+namespace App\\Controllers;\
+\
+use App\\Controller;\
+use App\\Models\\{EscenarioSimulacion, Estacion, CondicionGanado};\
+use App\\Services\\SimplexSolver;\
+use App\\Session;\
+\
+class SimulacionController extends Controller {\
+    \
+    public function indexAction() {\
+        $escenarios = EscenarioSimulacion::getEscenarios();\
+        \
+        $this->render('simulacion.index', [\
+            'escenarios' => $escenarios,\
+            'csrf' => $this->generateCsrf()\
+        ]);\
+    }\
+    \
+    public function ejecutarAction($codigo = null) {\
+        if ($codigo === null) {\
+            $codigo = trim($this->getGet('codigo', 'A'));\
+        }\
+        \
+        $escenario = EscenarioSimulacion::findByCodigo($codigo);\
+        \
+        if (!$escenario) {\
+            Session::flash('error', 'Escenario no encontrado');\
+            $this->redirect('/simulacion/index');\
+        }\
+        \
+        $datos = $escenario->getDatos();\
+        \
+        // Preparar parámetros del escenario para sobreescribir valores de BD\
+        $parametros_escenario = [];\
+        foreach (['precio_sc', 'precio_cb', 'costo_c1', 'costo_c2', 'costo_c3', 'costo_c4', 'prob_lluvia', 'bloqueo_r1', 'bloqueo_r2', 'bloqueo_r3', 'bloqueo_r4'] as $key) {\
+            if (isset($datos[$key])) {\
+                $parametros_escenario[$key] = $datos[$key];\
+            }\
+        }\
+\
+        // Simular lote con parámetros del escenario\
+        $simplex = new SimplexSolver();\
+        $resultado = $simplex->optimizar(\
+            0,\
+            CABEZAS_DEFAULT,\
+            PESO_DEFAULT,\
+            $datos['condicion_id'] ?? 1,\
+            $datos['estacion_id'] ?? 1,\
+            '20:00:00',\
+            $parametros_escenario\
+        );\
+        \
+        // Guardar datos de escenario en sesión para visualización\
+        Session::set('escenario_actual', $escenario->toArray());\
+        Session::set('resultado_simulacion', $resultado);\
+        \
+        $this->render('simulacion.resultado', [\
+            'escenario' => $escenario->toArray(),\
+            'datos_escenario' => $datos,\
+            'resultado' => $resultado,\
+            'csrf' => $this->generateCsrf()\
+        ]);\
+    }\
+    \
+    public function detalleAction($codigo = null) {\
+        if ($codigo === null) {\
+            $codigo = trim($this->getGet('codigo', 'A'));\
+        }\
+        \
+        $escenario = EscenarioSimulacion::findByCodigo($codigo);\
+        \
+        if (!$escenario) {\
+            Session::flash('error', 'Escenario no encontrado');\
+            $this->redirect('/simulacion/index');\
+        }\
+        \
+        $datos = $escenario->getDatos();\
+        \
+        $this->render('simulacion.detalle', [\
+            'escenario' => $escenario->toArray(),\
+            'datos_escenario' => $datos,\
+            'csrf' => $this->generateCsrf()\
+        ]);\
+    }\
+}\
+

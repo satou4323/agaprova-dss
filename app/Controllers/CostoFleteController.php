@@ -19,11 +19,12 @@ class CostoFleteController extends Controller {
         $kpi = CostoFlete::getKpiData();
         
         $this->render('costos.index', [
-            'costos' => $costos,
-            'rutas' => $rutas,
-            'historial' => $historial,
-            'kpi' => $kpi,
-            'csrf' => $this->generateCsrf()
+            'costos'     => $costos,
+            'rutas'      => $rutas,
+            'historial'  => $historial,
+            'kpi'        => $kpi,
+            'page_title' => 'Costos de Flete',
+            'csrf'       => $this->generateCsrf()
         ]);
     }
     

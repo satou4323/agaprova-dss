@@ -1,0 +1,424 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                                                                                ║
+║              ESTRUCTURA COMPLETA DEL PROYECTO DSS AGAPROVA                     ║
+║                                                                                ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+
+📦 RAÍZ DEL PROYECTO
+═══════════════════════════════════════════════════════════════════════════════
+
+├── 📄 index.php                    → Punto de entrada principal
+├── 📄 setup.php                    → Script de instalación automática
+├── 📄 .htaccess                    → Reescritura de URLs
+├── 📄 composer.json                → Configuración PHP/Composer
+│
+├── 📚 DOCUMENTACIÓN (11 ARCHIVOS)
+│   ├── 📖 00_LEER_PRIMERO.md               (¡COMIENZA AQUÍ!)
+│   ├── 📖 INSTALACION.md                   (Instalación detallada)
+│   ├── 📖 README.md                        (Descripción general)
+│   ├── 📖 ARQUITECTURA.md                  (Diseño técnico)
+│   ├── 📖 EJEMPLO_FLUJO.md                 (Casos de uso)
+│   ├── 📖 TECH_STACK.md                    (Stack tecnológico)
+│   ├── 📖 TESTING.md                       (Guía de testing)
+│   ├── 📖 QUICK_REFERENCE.md               (Referencia rápida)
+│   ├── 📖 CHECKLIST_ENTREGA.md             (Validación final)
+│   ├── 📖 RESUMEN_ENTREGA.md               (Resumen ejecutivo)
+│   ├── 📖 INICIO.md                        (Guía rápida)
+│   ├── 📖 ENTREGA_FINAL.txt                (Entrega completa)
+│   └── 📖 PROJECT_SUMMARY.txt              (Resumen en inglés)
+│
+├── 📁 CONFIG
+│   └── config.php                   → Configuración global del sistema
+│
+├── 📁 APP (NÚCLEO DEL FRAMEWORK)
+│   ├── 📄 Autoloader.php            → Carga automática de clases
+│   ├── 📄 Database.php              → Conexión MySQL
+│   ├── 📄 Router.php                → Enrutamiento de URLs
+│   ├── 📄 Session.php               → Gestión de sesiones
+│   ├── 📄 Controller.php            → Clase base de controladores
+│   ├── 📄 Model.php                 → Clase base de modelos (Active Record)
+│   ├── 📄 Helpers.php               → Funciones auxiliares (20+ funciones)
+│   ├── 📄 Validator.php             → Validación de datos (15+ métodos)
+│   ├── 📄 ErrorHandler.php          → Manejo centralizado de errores
+│   │
+│   ├── 📁 CONTROLLERS (9 CONTROLADORES)
+│   │   ├── 🎮 AuthController.php              → Autenticación y login
+│   │   ├── 🎮 DashboardController.php         → Panel principal
+│   │   ├── 🎮 LoteController.php              → Gestión de lotes
+│   │   ├── 🎮 PrecioController.php            → Gestión de precios
+│   │   ├── 🎮 ClimaController.php             → Datos climáticos
+│   │   ├── 🎮 BloqueoController.php           → Bloqueos de ruta
+│   │   ├── 🎮 CostoFleteController.php        → Cálculo de costos
+│   │   ├── 🎮 SimulacionController.php        → Simulaciones Simplex
+│   │   └── 🎮 ReporteController.php           → Generación de reportes
+│   │
+│   ├── 📁 MODELS (10 MODELOS)
+│   │   ├── 🔌 Usuario.php                     → Usuarios del sistema
+│   │   ├── 🔌 LoteGanado.php                  → Lotes de ganado
+│   │   ├── 🔌 Precio.php                      → Precios de mercado
+│   │   ├── 🔌 Ruta.php                        → Rutas disponibles
+│   │   ├── 🔌 Clima.php                       → Datos climáticos
+│   │   ├── 🔌 CostoFlete.php                  → Costos de transporte
+│   │   ├── 🔌 Bloqueo.php                     → Bloqueos de ruta
+│   │   ├── 🔌 Estacion.php                    → Estaciones climáticas
+│   │   ├── 🔌 CondicionGanado.php             → Condiciones del ganado
+│   │   └── 🔌 EscenarioSimulacion.php         → Escenarios simulados
+│   │
+│   └── 📁 SERVICES (3 SERVICIOS)
+│       ├── ⚙️  SimplexSolver.php              → Algoritmo de optimización
+│       ├── ⚙️  ClimaService.php               → Gestión de datos climáticos
+│       └── ⚙️  ReporteService.php             → Generación de reportes
+│
+├── 📁 DATABASE
+│   ├── schema.sql                   → Creación de tablas (10 tablas)
+│   └── seed.sql                     → Datos iniciales
+│
+├── 📁 VIEWS (15+ TEMPLATES HTML)
+│   ├── 📁 LAYOUTS
+│   │   └── main.php                 → Template principal
+│   │
+│   ├── 📁 AUTH
+│   │   └── login.php                → Formulario de login
+│   │
+│   ├── 📁 DASHBOARD
+│   │   └── index.php                → Panel de control principal
+│   │
+│   ├── 📁 LOTES
+│   │   ├── crear.php                → Crear nuevo lote
+│   │   ├── index.php                → Listar lotes
+│   │   └── resultado.php            → Ver resultado de optimización
+│   │
+│   ├── 📁 PRECIOS
+│   │   └── index.php                → Gestión de precios
+│   │
+│   ├── 📁 CLIMA
+│   │   └── index.php                → Consulta de datos climáticos
+│   │
+│   ├── 📁 BLOQUEOS
+│   │   └── index.php                → Registro de bloqueos de ruta
+│   │
+│   ├── 📁 COSTOS
+│   │   └── index.php                → Cálculo de costos de flete
+│   │
+│   ├── 📁 SIMULACION
+│   │   ├── index.php                → Crear nueva simulación
+│   │   ├── resultado.php            → Ver resultado de simulación
+│   │   └── detalle.php              → Detalle de simulación guardada
+│   │
+│   └── 📁 REPORTES
+│       ├── index.php                → Generación de reportes
+│       ├── personalizado.php        → Reportes personalizados
+│       └── ver.php                  → Ver reporte generado
+│
+├── 📁 API
+│   └── index.php                    → Endpoints REST (8 endpoints)
+│
+└── 📁 DIRECTORIOS GENERADOS (autocreados por setup.php)
+    ├── logs/                        → Archivos de error (errors.log)
+    ├── uploads/                     → Archivos subidos por usuarios
+    ├── storage/                     → Almacenamiento temporal
+    └── cache/                       → Caché de datos
+
+
+═══════════════════════════════════════════════════════════════════════════════
+DETALLE DE CONTROLADORES (9 TOTAL)
+═══════════════════════════════════════════════════════════════════════════════
+
+1. AuthController
+   ├── login()      → Muestra formulario de login
+   ├── doLogin()    → Procesa login
+   └── logout()     → Cierra sesión
+
+2. DashboardController
+   └── index()      → Muestra panel principal
+
+3. LoteController
+   ├── crear()      → Muestra formulario crear lote
+   ├── listar()     → Lista todos los lotes
+   ├── guardar()    → Guarda lote nuevo
+   ├── editar()     → Muestra formulario editar
+   └── actualizar() → Actualiza lote
+
+4. PrecioController
+   ├── index()      → Lista de precios
+   ├── crear()      → Formulario crear precio
+   ├── guardar()    → Guarda precio nuevo
+   ├── editar()     → Formulario editar precio
+   └── actualizar() → Actualiza precio
+
+5. ClimaController
+   ├── index()      → Consulta de clima
+   ├── obtener()    → Obtiene clima por estación
+   └── actualizar() → Actualiza datos climáticos
+
+6. BloqueoController
+   ├── index()      → Lista de bloqueos
+   ├── crear()      → Formulario crear bloqueo
+   ├── guardar()    → Guarda bloqueo nuevo
+   ├── editar()     → Formulario editar bloqueo
+   └── actualizar() → Actualiza bloqueo
+
+7. CostoFleteController
+   ├── index()      → Lista de costos
+   ├── calcular()   → Calcula costo
+   ├── crear()      → Formulario crear costo
+   └── guardar()    → Guarda costo nuevo
+
+8. SimulacionController
+   ├── index()      → Listar simulaciones
+   ├── crear()      → Formulario crear simulación
+   ├── ejecutar()   → Ejecuta algoritmo Simplex
+   ├── ver()        → Ver simulación guardada
+   └── resultados() → Ve resultados
+
+9. ReporteController
+   ├── index()      → Generación de reportes
+   ├── generar()    → Genera reporte
+   ├── descargar()  → Descarga PDF
+   └── listar()     → Lista reportes generados
+
+
+═══════════════════════════════════════════════════════════════════════════════
+DETALLE DE MODELOS (10 TOTAL)
+═══════════════════════════════════════════════════════════════════════════════
+
+1. Usuario (tabla: usuarios)
+   - Propiedades: id, email, nombre, contraseña, rol, fecha_creacion
+   - Métodos: find(), getByEmail(), validate()
+
+2. LoteGanado (tabla: lotes_ganado)
+   - Propiedades: id, usuario_id, cantidad, condicion, ruta_id, fecha
+   - Métodos: getByUsuario(), getActivos(), calcularCosto()
+
+3. Precio (tabla: precios)
+   - Propiedades: id, tipo_ganado, precio_kg, fecha_vigencia
+   - Métodos: getPrecioActual(), getHistorico()
+
+4. Ruta (tabla: rutas)
+   - Propiedades: id, origen, destino, distancia, duracion
+   - Métodos: calcularTiempo(), validarDisponibilidad()
+
+5. Clima (tabla: clima)
+   - Propiedades: id, estacion_id, condicion, temperatura, viento
+   - Métodos: getActual(), getImpacto()
+
+6. CostoFlete (tabla: costos_flete)
+   - Propiedades: id, ruta_id, cantidad_ganado, costo_base, impuestos
+   - Métodos: calcular(), obtenerDetalles()
+
+7. Bloqueo (tabla: bloqueos)
+   - Propiedades: id, ruta_id, fecha_inicio, fecha_fin, motivo
+   - Métodos: getRutesBloqueadas(), validarFecha()
+
+8. Estacion (tabla: estaciones)
+   - Propiedades: id, nombre, ubicacion, latitud, longitud
+   - Métodos: getProxima(), getTodasActivas()
+
+9. CondicionGanado (tabla: condiciones_ganado)
+   - Propiedades: id, nombre, factor_costo
+   - Métodos: getFactorCosto()
+
+10. EscenarioSimulacion (tabla: escenarios_simulacion)
+    - Propiedades: id, usuario_id, lote_id, costo_total, ruta_optima
+    - Métodos: guardar(), obtener(), listar()
+
+
+═══════════════════════════════════════════════════════════════════════════════
+DETALLE DE SERVICIOS (3 TOTAL)
+═══════════════════════════════════════════════════════════════════════════════
+
+1. SimplexSolver
+   Métodos principales:
+   ├── solve()              → Resuelve el problema de optimización
+   ├── buildCostMatrix()    → Construye matriz de costos
+   ├── validateConstraints()→ Valida restricciones
+   ├── applyBlockages()     → Aplica bloqueos
+   └── calculateOptimal()   → Calcula ruta óptima
+
+2. ClimaService
+   Métodos principales:
+   ├── getClimateData()     → Obtiene datos climáticos
+   ├── getImpact()          → Calcula impacto en transporte
+   ├── updateData()         → Actualiza datos
+   └── forecast()           → Predicción climática
+
+3. ReporteService
+   Métodos principales:
+   ├── generateCostAnalysis()    → Análisis de costos
+   ├── generateTransportHistory()→ Historial de transportes
+   ├── generateRouteStats()      → Estadísticas de rutas
+   ├── exportPDF()               → Exporta a PDF
+   └── generateCustom()          → Genera reportes personalizados
+
+
+═══════════════════════════════════════════════════════════════════════════════
+DETALLE DE VISTAS (15+ ARCHIVOS HTML)
+═══════════════════════════════════════════════════════════════════════════════
+
+LAYOUTS
+  main.php           - Template base con navegación, footer, CSS/JS
+
+AUTH
+  login.php          - Formulario de login con validación
+
+DASHBOARD
+  index.php          - Panel principal con estadísticas y acceso rápido
+
+LOTES
+  crear.php          - Formulario para crear lote (con validación)
+  index.php          - Tabla de lotes con acciones
+  resultado.php      - Resultado de optimización con detalles
+
+PRECIOS
+  index.php          - Gestión de precios de mercado
+
+CLIMA
+  index.php          - Consulta de datos climáticos por estación
+
+BLOQUEOS
+  index.php          - Registro y gestión de bloqueos de ruta
+
+COSTOS
+  index.php          - Cálculo y gestión de costos de flete
+
+SIMULACION
+  index.php          - Crear nueva simulación
+  resultado.php      - Mostrar resultado de simulación ejecutada
+  detalle.php        - Detalle de simulación guardada
+
+REPORTES
+  index.php          - Interfaz de generación de reportes
+  personalizado.php  - Opciones para reportes personalizados
+  ver.php            - Visualizar reporte generado
+
+
+═══════════════════════════════════════════════════════════════════════════════
+DETALLE DE BASE DE DATOS (10 TABLAS)
+═══════════════════════════════════════════════════════════════════════════════
+
+1. usuarios (4 registros iniciales)
+   - id, email, nombre, contraseña_hash, rol, estado, fecha_creacion
+
+2. lotes_ganado
+   - id, usuario_id, cantidad, condicion_id, ruta_id, fecha, estado
+
+3. precios
+   - id, tipo_ganado, precio_kg, fecha_vigencia, estado
+
+4. rutas
+   - id, origen, destino, distancia, duracion, costo_km, estado
+
+5. clima
+   - id, estacion_id, condicion, temperatura, viento, fecha
+
+6. costos_flete
+   - id, ruta_id, cantidad_ganado, costo_base, impuestos, total
+
+7. bloqueos
+   - id, ruta_id, fecha_inicio, fecha_fin, motivo, estado
+
+8. estaciones
+   - id, nombre, ubicacion, latitud, longitud, estado
+
+9. condiciones_ganado
+   - id, nombre, descripcion, factor_costo, estado
+
+10. escenarios_simulacion
+    - id, usuario_id, lote_id, costo_total, ruta_optima, estado, fecha
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ENDPOINTS API REST (8 TOTAL)
+═══════════════════════════════════════════════════════════════════════════════
+
+Ubicación: /api/index.php
+
+1. GET /api/?action=get_precios
+   → Obtiene lista de precios activos
+
+2. GET /api/?action=get_rutas
+   → Obtiene lista de rutas disponibles
+
+3. GET /api/?action=get_estaciones
+   → Obtiene lista de estaciones climáticas
+
+4. GET /api/?action=get_clima&estacion_id=X
+   → Obtiene datos climáticos de una estación
+
+5. POST /api/?action=validar_bloqueo
+   → Valida si una ruta está bloqueada en una fecha
+
+6. POST /api/?action=calcular_flete
+   → Calcula costo de flete para una ruta y cantidad
+
+7. GET /api/?action=listar_simulaciones
+   → Lista las simulaciones del usuario actual
+
+8. GET /api/?action=obtener_simulacion&id=X
+   → Obtiene detalles de una simulación específica
+
+
+═══════════════════════════════════════════════════════════════════════════════
+RESUMEN POR NÚMEROS
+═══════════════════════════════════════════════════════════════════════════════
+
+ARCHIVOS PHP:               35+
+VISTAS HTML:                15+
+ARCHIVOS DOCUMENTACIÓN:     11
+TABLAS BASE DE DATOS:       10
+MODELOS:                    10
+CONTROLADORES:              9
+SERVICIOS:                  3
+
+LÍNEAS DE CÓDIGO PHP:       5000+
+LÍNEAS DE DOCUMENTACIÓN:    2500+
+FUNCIONES HELPERS:          20+
+MÉTODOS VALIDATOR:          15+
+ENDPOINTS API:              8
+
+REGISTROS INICIALES:
+  - Usuarios:               4
+  - Precios:                5
+  - Rutas:                  8
+  - Estaciones:             3
+  - Condiciones:            4
+
+
+═══════════════════════════════════════════════════════════════════════════════
+FLUJO DE DATOS
+═══════════════════════════════════════════════════════════════════════════════
+
+Usuario (Cliente Web)
+    ↓
+index.php (Router)
+    ↓
+┌─────────────────────┐
+│ Controlador         │
+├─────────────────────┤
+│ - Valida entrada    │
+│ - Llama Modelo      │
+│ - Llama Servicio    │
+│ - Prepara vista     │
+└─────────────────────┘
+    ↓
+┌─────────────────────┐
+│ Modelo / Servicio   │
+├─────────────────────┤
+│ - Accede BD         │
+│ - Procesa datos     │
+│ - Retorna resultado │
+└─────────────────────┘
+    ↓
+Base de Datos MySQL
+    ↓
+Vista HTML/JS
+    ↓
+Respuesta al Usuario
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+¡LISTO PARA USAR! Lee 00_LEER_PRIMERO.md para comenzar.
+
+═══════════════════════════════════════════════════════════════════════════════

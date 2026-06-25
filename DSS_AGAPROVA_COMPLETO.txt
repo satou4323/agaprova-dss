@@ -1,0 +1,4184 @@
+================================================================================
+DOCUMENTO TÉCNICO COMPLETO
+SISTEMA DE SOPORTE A LA DECISIÓN (DSS) - AGAPROVA
+"Optimización Logística para la Comercialización Semanal de Ganado Bovino"
+================================================================================
+
+Asociación de Ganaderos de la Provincia de Vallegrande
+Versión 1.0 - Junio 2026
+
+================================================================================
+ÍNDICE DE CONTENIDO
+================================================================================
+
+FASE 0: FUNDAMENTACIÓN Y REQUISITOS
+  0.1 Resumen Ejecutivo
+  0.2 Variables Críticas del Sistema
+  0.3 Requisitos Funcionales Básicos
+  0.4 Identidad Visual
+
+FASE 1: BASE DE DATOS MySQL EN 3FN
+  1.1 Modelo Entidad-Relación
+  1.2 Diccionario de Datos
+  1.3 Script schema.sql
+  1.4 Vista v_semana_operativa
+  1.5 Script seed.sql
+
+FASE 2: CORE DEL FRAMEWORK MVC
+  2.1 Estructura de Directorios
+  2.2 Configuración
+  2.3 Punto de Entrada
+  2.4 Router, Request, Response, Session
+  2.5 Database, Model, Controller
+  2.6 Validator, Auth, App
+  2.7 Helpers, .htaccess, composer.json
+
+FASE 3: CONTROLADORES
+  3.1 AuthController
+  3.2 DashboardController
+  3.3 LoteController
+  3.4 PrecioController
+  3.5 ClimaController
+  3.6 BloqueoController
+  3.7 CostoFleteController
+  3.8 SimplexController
+  3.9 SimulacionController
+  3.10 ReporteController
+
+FASE 4: MODELOS
+  4.1-4.10 Modelos Active Record
+
+FASE 5: SERVICIOS
+  5.1 SimplexSolver
+  5.2 ClimaService
+  5.3 EstacionalidadService
+  5.4 ReporteService
+
+FASE 6: VISTAS
+  6.1 Layouts
+  6.2 Login
+  6.3 Dashboard
+  6.4 Formularios
+
+FASE 7: PRUEBAS BÁSICAS
+FASE 8: ENTREGA Y DOCUMENTACIÓN
+
+================================================================================
+FASE 0: FUNDAMENTACIÓN Y REQUISITOS
+================================================================================
+
+0.1 RESUMEN EJECUTIVO
+--------------------------------------------------------------------------------
+
+La Asociación de Ganaderos de la Provincia de Vallegrande (AGAPROVA) agrupa a
+productores dedicados a la cría y engorde de ganado bovino para su venta en pie,
+valuada bajo el estándar de peso kilo gancho. La comercialización se realiza
+semanalmente, constituyendo la principal fuente de ingresos de los asociados.
+
+Actualmente, la decisión de asignación de rutas de despacho se toma de forma
+empírica, basada en la experiencia individual de cada socio, lo que ha generado
+pérdidas recurrentes por: elección incorrecta de ruta ante condiciones de lluvia
+(especialmente en la vía Ipati-Abapó), llegada fuera del horario establecido
+por los mercados (08:00 a.m.), y pérdidas por enviar ganado en condición
+invernal (vaca flaca) cuando el precio de mercado no compensa el menor
+rendimiento en kilo gancho.
+
+El Sistema de Soporte a la Decisión (DSS) AGAPROVA implementa un modelo de
+optimización basado en el algoritmo Simplex para maximizar la rentabilidad neta
+semanal, considerando cuatro rutas de despacho, precios de mercado (Santa Cruz
+y Cochabamba), eficiencia de inversión ajustada por estacionalidad y condición
+del ganado, costos logísticos, bloqueos viales, y restricción climática con
+umbral probabilístico en la zona de Abapó.
+
+0.2 VARIABLES CRÍTICAS DEL SISTEMA
+--------------------------------------------------------------------------------
+
+Variables de decisión:
+  x1 = Cabezas hacia Santa Cruz vía Samaipata (Ruta Principal)
+  x2 = Cabezas hacia Cochabamba vía Comarapa (Ruta Principal)
+  x3 = Cabezas hacia Santa Cruz vía Ipati-Abapó (Ruta Alternativa)
+  x4 = Cabezas hacia Cochabamba vía Aiquile (Ruta Alternativa)
+
+Parámetros de entrada:
+  P_SC  = Precio del kilogramo gancho en Santa Cruz (Bs/kg)
+  P_CB  = Precio del kilogramo gancho en Cochabamba (Bs/kg)
+  C1    = Costo logístico por cabeza - Ruta Samaipata (Bs/cabeza)
+  C2    = Costo logístico por cabeza - Ruta Comarapa (Bs/cabeza)
+  C3    = Costo logístico por cabeza - Ruta Ipati-Abapó (Bs/cabeza)
+  C4    = Costo logístico por cabeza - Ruta Aiquile (Bs/cabeza)
+  G_totales = Total de cabezas disponibles
+  E_inv_real = Eficiencia de inversión real (kg gancho/cabeza)
+  prob_lluvia = Probabilidad de lluvia en Abapó (0.00 a 1.00)
+  hora_salida = Hora de salida programada
+  α, β, γ, δ = Estado de bloqueo (1=activa, 0=bloqueada)
+
+Factores de ajuste:
+  factor_estacion:  seca=1.00, lluviosa=0.70, transición=0.85
+  factor_condicion: buena=1.00, regular=0.90, invernal=0.75
+
+Variables calculadas:
+  E_inv_efectiva = E_inv_real * factor_estacion * factor_condicion
+  M1 = (P_SC * E_inv_efectiva) - C1
+  M2 = (P_CB * E_inv_efectiva) - C2
+  M3 = (P_SC * E_inv_efectiva) - C3
+  M4 = (P_CB * E_inv_efectiva) - C4
+
+Función objetivo:
+  Maximizar Z = M1*x1 + M2*x2 + M3*x3 + M4*x4
+
+Restricciones:
+  (1) x1 + x2 + x3 + x4 = G_totales
+  (2) x1 <= G_totales * α
+  (3) x2 <= G_totales * β
+  (4) x3 <= G_totales * γ
+  (5) x4 <= G_totales * δ
+  (6) x3 <= G_totales * Y  (Y=1 si prob_lluvia < 0.40, Y=0 si >= 0.40)
+  (7) x1, x2, x3, x4 >= 0
+
+Restricción horaria:
+  Si hora_salida + tiempo_ruta(i) > 08:00, la ruta i se descarta.
+
+Regla de asignación:
+  Si tras todos los filtros existe al menos una ruta disponible,
+  TODAS las cabezas se asignan a la ruta con el mayor Mi.
+  Si ninguna ruta disponible, factible = false.
+
+0.3 REQUISITOS FUNCIONALES BÁSICOS
+--------------------------------------------------------------------------------
+
+RF-01: Login con contraseña hasheada y CSRF.
+RF-02: Registrar lotes (cabezas, peso, condición, estación, hora salida).
+RF-03: Registrar precios de mercado (validación valores positivos).
+RF-04: Registrar estado climático (probabilidad 0.00-1.00).
+RF-05: Activar/desactivar bloqueos de rutas.
+RF-06: Registrar costos de flete (C1-C4).
+RF-07: Modelo Simplex con todos los filtros.
+RF-08: Generar reporte PDF semanal.
+RF-09: Simular escenarios A-F.
+RF-10: Restricción horaria (salida + viaje <= 08:00).
+RF-11: Restricción climática (prob_lluvia >= 0.40 bloquea ruta 3).
+RF-12: Asignar todas las cabezas a la ruta con mayor Mi.
+
+0.4 IDENTIDAD VISUAL
+--------------------------------------------------------------------------------
+
+Colores institucionales:
+  Verde oscuro:  #2E7D32
+  Verde claro:   #4a7c2e
+  Dorado:        #F9A825
+  Marron:        #4E2A04
+  Fondo pagina:  #f5f0e8
+
+Tipografia: 'Segoe UI', 'Roboto', sans-serif
+Iconos: Font Awesome 6 (fa-cow, fa-truck, fa-cloud-rain, fa-chart-line, etc.)
+
+Efectos: sombras suaves, gradientes, bordes redondeados 8-12px,
+         hover en botones (opacity 0.9, scale 1.02), transiciones 0.3s,
+         diseño responsive con flexbox/grid.
+================================================================================
+FASE 1: BASE DE DATOS MySQL EN 3FN
+================================================================================
+
+1.1 MODELO ENTIDAD-RELACION
+--------------------------------------------------------------------------------
+
+Entidades:
+  mercados (id, nombre, ciudad, activo)
+  rutas (id, codigo, nombre, origen, destino, mercado_id, tipo_via, tiempo_horas, activo)
+  estaciones (id, nombre, factor, descripcion)
+  condiciones_ganado (id, nombre, factor, descripcion)
+  usuarios (id, username, password_hash, nombre, created_at)
+  lotes_ganado (id, cabezas, peso_promedio_kg, condicion_id, estacion_id, hora_salida, fecha_registro, activo, created_at)
+  precios (id, mercado_id, precio_kg, fecha_registro, activo, created_at)
+  clima (id, probabilidad_lluvia, ubicacion, fecha_registro, activo, created_at)
+  bloqueos (id, ruta_id, activo, fecha_inicio, fecha_fin, created_at)
+  costos_flete (id, ruta_id, costo_cabeza, semana_inicio, activo, created_at)
+  escenarios_simulacion (id, codigo, nombre, descripcion, datos_json, created_at)
+
+Relaciones:
+  rutas.mercado_id -> mercados.id
+  lotes_ganado.condicion_id -> condiciones_ganado.id
+  lotes_ganado.estacion_id -> estaciones.id
+  precios.mercado_id -> mercados.id
+  bloqueos.ruta_id -> rutas.id
+  costos_flete.ruta_id -> rutas.id
+
+1.2 DICCIONARIO DE DATOS (incluido en los CREATE TABLE con tipos, CHECK, NOT NULL, DEFAULT)
+
+1.3 SCRIPT SCHEMA.SQL
+--------------------------------------------------------------------------------
+
+-- ============================================================================
+-- DSS AGAPROVA - Esquema de Base de Datos
+-- Version 1.0 - MySQL 8+
+-- ============================================================================
+
+CREATE DATABASE IF NOT EXISTS dss_agaprova
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+USE dss_agaprova;
+
+-- TABLAS CATALOGO
+
+CREATE TABLE mercados (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    ciudad VARCHAR(100) NOT NULL,
+    activo TINYINT(1) NOT NULL DEFAULT 1,
+    CONSTRAINT uq_mercados_nombre UNIQUE (nombre)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE estaciones (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL,
+    factor DECIMAL(4,2) NOT NULL,
+    descripcion VARCHAR(255),
+    CONSTRAINT ck_estaciones_factor CHECK (factor >= 0.50 AND factor <= 1.00),
+    CONSTRAINT uq_estaciones_nombre UNIQUE (nombre)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE condiciones_ganado (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL,
+    factor DECIMAL(4,2) NOT NULL,
+    descripcion VARCHAR(255),
+    CONSTRAINT ck_condiciones_factor CHECK (factor >= 0.50 AND factor <= 1.00),
+    CONSTRAINT uq_condiciones_nombre UNIQUE (nombre)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE rutas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    codigo VARCHAR(10) NOT NULL,
+    nombre VARCHAR(100) NOT NULL,
+    origen VARCHAR(100) NOT NULL,
+    destino VARCHAR(100) NOT NULL,
+    mercado_id INT NOT NULL,
+    tipo_via VARCHAR(50),
+    tiempo_horas DECIMAL(4,1) NOT NULL,
+    activo TINYINT(1) NOT NULL DEFAULT 1,
+    CONSTRAINT uq_rutas_codigo UNIQUE (codigo),
+    CONSTRAINT ck_rutas_tiempo CHECK (tiempo_horas > 0),
+    CONSTRAINT fk_rutas_mercado FOREIGN KEY (mercado_id)
+        REFERENCES mercados(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    INDEX idx_rutas_mercado (mercado_id),
+    INDEX idx_rutas_activo (activo)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE usuarios (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    nombre VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_usuarios_username UNIQUE (username)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE lotes_ganado (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    cabezas INT NOT NULL,
+    peso_promedio_kg DECIMAL(6,2) NOT NULL,
+    condicion_id INT NOT NULL,
+    estacion_id INT NOT NULL,
+    hora_salida TIME NOT NULL DEFAULT '20:00:00',
+    fecha_registro DATE NOT NULL,
+    activo TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_lotes_cabezas CHECK (cabezas > 0),
+    CONSTRAINT ck_lotes_peso CHECK (peso_promedio_kg > 0),
+    CONSTRAINT fk_lotes_condicion FOREIGN KEY (condicion_id)
+        REFERENCES condiciones_ganado(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_lotes_estacion FOREIGN KEY (estacion_id)
+        REFERENCES estaciones(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    INDEX idx_lotes_fecha (fecha_registro),
+    INDEX idx_lotes_activo (activo),
+    INDEX idx_lotes_condicion (condicion_id),
+    INDEX idx_lotes_estacion (estacion_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE precios (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    mercado_id INT NOT NULL,
+    precio_kg DECIMAL(10,2) NOT NULL,
+    fecha_registro DATE NOT NULL,
+    activo TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_precios_positivo CHECK (precio_kg > 0),
+    CONSTRAINT fk_precios_mercado FOREIGN KEY (mercado_id)
+        REFERENCES mercados(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    INDEX idx_precios_fecha (fecha_registro),
+    INDEX idx_precios_activo (activo),
+    INDEX idx_precios_mercado_fecha (mercado_id, fecha_registro)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE clima (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    probabilidad_lluvia DECIMAL(4,2) NOT NULL,
+    ubicacion VARCHAR(100) NOT NULL DEFAULT 'Abapo',
+    fecha_registro DATE NOT NULL,
+    activo TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_clima_probabilidad CHECK (
+        probabilidad_lluvia >= 0 AND probabilidad_lluvia <= 1
+    ),
+    INDEX idx_clima_fecha (fecha_registro),
+    INDEX idx_clima_activo (activo)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE bloqueos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ruta_id INT NOT NULL,
+    activo TINYINT(1) NOT NULL DEFAULT 0,
+    fecha_inicio DATE,
+    fecha_fin DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_bloqueos_ruta FOREIGN KEY (ruta_id)
+        REFERENCES rutas(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    INDEX idx_bloqueos_ruta (ruta_id),
+    INDEX idx_bloqueos_activo (activo)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE costos_flete (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ruta_id INT NOT NULL,
+    costo_cabeza DECIMAL(10,2) NOT NULL,
+    semana_inicio DATE NOT NULL,
+    activo TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_costos_positivo CHECK (costo_cabeza > 0),
+    CONSTRAINT fk_costos_ruta FOREIGN KEY (ruta_id)
+        REFERENCES rutas(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    INDEX idx_costos_ruta (ruta_id),
+    INDEX idx_costos_activo (activo),
+    INDEX idx_costos_semana (semana_inicio)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE escenarios_simulacion (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    codigo VARCHAR(10) NOT NULL,
+    nombre VARCHAR(100) NOT NULL,
+    descripcion TEXT,
+    datos_json JSON NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_escenarios_codigo UNIQUE (codigo)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+1.4 VISTA V_SEMANA_OPERATIVA
+--------------------------------------------------------------------------------
+
+CREATE OR REPLACE VIEW v_semana_operativa AS
+SELECT
+    l.id AS lote_id,
+    l.cabezas,
+    l.peso_promedio_kg,
+    l.hora_salida,
+    l.fecha_registro,
+    cg.nombre AS condicion,
+    cg.factor AS factor_condicion,
+    e.nombre AS estacion,
+    e.factor AS factor_estacion,
+    r.id AS ruta_id,
+    r.codigo AS ruta_codigo,
+    r.nombre AS ruta_nombre,
+    r.tiempo_horas,
+    r.tipo_via,
+    m.id AS mercado_id,
+    m.nombre AS mercado_nombre,
+    m.ciudad AS mercado_ciudad,
+    p.precio_kg,
+    cf.costo_cabeza,
+    COALESCE(
+        (SELECT b.activo FROM bloqueos b
+         WHERE b.ruta_id = r.id AND b.activo = 1
+         LIMIT 1),
+        0
+    ) AS bloqueado,
+    cl.probabilidad_lluvia,
+    l.peso_promedio_kg * cg.factor * e.factor AS eficiencia_inv_efectiva,
+    CASE
+        WHEN cl.probabilidad_lluvia >= 0.40 THEN 0
+        ELSE 1
+    END AS clima_permite_ruta3
+FROM lotes_ganado l
+JOIN condiciones_ganado cg ON l.condicion_id = cg.id
+JOIN estaciones e ON l.estacion_id = e.id
+CROSS JOIN rutas r
+JOIN mercados m ON r.mercado_id = m.id
+LEFT JOIN precios p ON p.mercado_id = m.id AND p.activo = 1
+LEFT JOIN costos_flete cf ON cf.ruta_id = r.id AND cf.activo = 1
+LEFT JOIN clima cl ON cl.activo = 1
+WHERE l.activo = 1
+  AND r.activo = 1;
+
+Nota: La vista usa una subconsulta correlacionada para obtener el estado de
+bloqueo activo (COALESCE + SELECT ... LIMIT 1), lo que evita la duplicacion
+de filas cuando hay multiples registros de bloqueo para una misma ruta.
+La probabilidad de lluvia se obtiene del unico registro climatico activo
+(solo debe haber uno activo a la vez).
+
+1.5 SCRIPT SEED.SQL
+--------------------------------------------------------------------------------
+
+USE dss_agaprova;
+
+-- Mercados destino
+INSERT INTO mercados (nombre, ciudad) VALUES
+('Mercado Mayorista Santa Cruz', 'Santa Cruz'),
+('Feria de Punata - Cochabamba', 'Cochabamba');
+
+-- Estaciones climaticas
+INSERT INTO estaciones (nombre, factor, descripcion) VALUES
+('Seca', 1.00, 'Temporada seca (mayo-agosto). Mayor rendimiento.'),
+('Lluviosa', 0.70, 'Temporada lluviosa (diciembre-marzo). Menor rendimiento.'),
+('Transicion', 0.85, 'Transicion (abril, septiembre-noviembre). Rendimiento moderado.');
+
+-- Condiciones de ganado
+INSERT INTO condiciones_ganado (nombre, factor, descripcion) VALUES
+('Buena', 1.00, 'Condicion optima, peso estandar.'),
+('Regular', 0.90, 'Condicion media, rendimiento al 90%.'),
+('Invernal', 0.75, 'Vaca flaca en invierno, rendimiento al 75%.');
+
+-- Rutas de despacho (4 rutas)
+INSERT INTO rutas (codigo, nombre, origen, destino, mercado_id, tipo_via, tiempo_horas) VALUES
+('R01', 'Santa Cruz via Samaipata', 'Vallegrande', 'Santa Cruz', 1, 'Asfalto', 6.5),
+('R02', 'Cochabamba via Comarapa', 'Vallegrande', 'Cochabamba', 2, 'Asfalto', 9.0),
+('R03', 'Santa Cruz via Ipati-Abapo', 'Vallegrande', 'Santa Cruz', 1, 'Mixto (tierra/asfalto)', 11.0),
+('R04', 'Cochabamba via Aiquile', 'Vallegrande', 'Cochabamba', 2, 'Asfalto', 10.0);
+
+-- Usuario operador (password: admin123, hash bcrypt)
+INSERT INTO usuarios (username, password_hash, nombre) VALUES
+('operador', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Operador AGAPROVA');
+
+-- Escenarios de simulacion A-F
+INSERT INTO escenarios_simulacion (codigo, nombre, descripcion, datos_json) VALUES
+('A', 'Operacion Optima (Clima Soleado)',
+ 'Clima soleado, sin bloqueos, condicion buena, estacion seca.',
+ '{"estacion_id":1,"condicion_id":1,"precio_sc":32,"precio_cb":34,"costo_c1":420,"costo_c2":510,"costo_c3":390,"costo_c4":480,"prob_lluvia":0.10,"bloqueo_r1":0,"bloqueo_r2":0,"bloqueo_r3":0,"bloqueo_r4":0}'),
+('B', 'Contingencia Climatica (Alabaza en Abapo)',
+ 'Alta probabilidad de lluvia en Abapo que bloquea ruta Ipati.',
+ '{"estacion_id":2,"condicion_id":2,"precio_sc":30,"precio_cb":32,"costo_c1":420,"costo_c2":510,"costo_c3":390,"costo_c4":480,"prob_lluvia":0.65,"bloqueo_r1":0,"bloqueo_r2":0,"bloqueo_r3":0,"bloqueo_r4":0}'),
+('C', 'Estacionalidad Invernal (Vaca Flaca)',
+ 'Invierno con ganado en condicion invernal y precios bajos.',
+ '{"estacion_id":1,"condicion_id":3,"precio_sc":28,"precio_cb":30,"costo_c1":420,"costo_c2":510,"costo_c3":390,"costo_c4":480,"prob_lluvia":0.10,"bloqueo_r1":0,"bloqueo_r2":0,"bloqueo_r3":0,"bloqueo_r4":0}'),
+('D', 'Fluctuacion de Mercado (Alza en Cochabamba)',
+ 'Incremento del precio en Cochabamba para evaluar sensibilidad.',
+ '{"estacion_id":1,"condicion_id":1,"precio_sc":32,"precio_cb":38,"costo_c1":420,"costo_c2":510,"costo_c3":390,"costo_c4":480,"prob_lluvia":0.10,"bloqueo_r1":0,"bloqueo_r2":0,"bloqueo_r3":0,"bloqueo_r4":0}'),
+('E', 'Restriccion de Ruta (Bloqueo Total)',
+ 'Bloqueos en rutas alternativas para probar asignacion forzada.',
+ '{"estacion_id":1,"condicion_id":1,"precio_sc":32,"precio_cb":34,"costo_c1":420,"costo_c2":510,"costo_c3":390,"costo_c4":480,"prob_lluvia":0.10,"bloqueo_r1":0,"bloqueo_r2":1,"bloqueo_r3":0,"bloqueo_r4":1}'),
+('F', 'Crisis Logistica (Bloqueo + Clima + Invierno)',
+ 'Combinado: bloqueo en Samaipata, clima adverso, condicion invernal.',
+ '{"estacion_id":2,"condicion_id":3,"precio_sc":28,"precio_cb":30,"costo_c1":420,"costo_c2":510,"costo_c3":390,"costo_c4":480,"prob_lluvia":0.50,"bloqueo_r1":1,"bloqueo_r2":0,"bloqueo_r3":0,"bloqueo_r4":0}');
+================================================================================
+FASE 2: CORE DEL FRAMEWORK MVC
+================================================================================
+
+2.1 ESTRUCTURA DE DIRECTORIOS
+--------------------------------------------------------------------------------
+
+agaprova-dss/
++-- config/
+|   +-- database.php
++-- public/
+|   +-- index.php
+|   +-- .htaccess
+|   +-- assets/
+|       +-- css/
+|       |   +-- style.css
+|       +-- js/
+|           +-- app.js
++-- app/
+|   +-- Core/
+|   |   +-- App.php
+|   |   +-- Router.php
+|   |   +-- Controller.php
+|   |   +-- Model.php
+|   |   +-- Database.php
+|   |   +-- Request.php
+|   |   +-- Response.php
+|   |   +-- Session.php
+|   |   +-- Validator.php
+|   |   +-- Auth.php
+|   |   +-- Middleware/
+|   |       +-- AuthMiddleware.php
+|   +-- Controllers/
+|   |   +-- AuthController.php
+|   |   +-- DashboardController.php
+|   |   +-- LoteController.php
+|   |   +-- PrecioController.php
+|   |   +-- ClimaController.php
+|   |   +-- BloqueoController.php
+|   |   +-- CostoFleteController.php
+|   |   +-- SimplexController.php
+|   |   +-- SimulacionController.php
+|   |   +-- ReporteController.php
+|   +-- Models/
+|   |   +-- Lote.php, Precio.php, Clima.php, Bloqueo.php
+|   |   +-- Ruta.php, Mercado.php, CostoFlete.php
+|   |   +-- CondicionGanado.php, Estacion.php, Usuario.php
+|   +-- Services/
+|   |   +-- SimplexSolver.php
+|   |   +-- ClimaService.php
+|   |   +-- EstacionalidadService.php
+|   |   +-- ReporteService.php
+|   +-- Views/
+|       +-- layouts/ (header.php, footer.php)
+|       +-- auth/ (login.php)
+|       +-- dashboard/ (index.php)
+|       +-- lotes/ (index.php, create.php, show.php)
+|       +-- precios/ (index.php, create.php, edit.php)
+|       +-- clima/ (index.php, create.php)
+|       +-- bloqueos/ (index.php, create.php)
+|       +-- costos/ (index.php, create.php)
+|       +-- simplex/ (resultado.php)
+|       +-- simulacion/ (index.php, resultado.php)
+|       +-- reportes/ (index.php, show.php)
+|       +-- errors/ (404.php, 500.php)
++-- helpers/
+|   +-- functions.php
++-- database/
+|   +-- schema.sql
+|   +-- seed.sql
++-- storage/
+|   +-- reportes/
++-- vendor/
++-- composer.json
++-- .htaccess
+
+2.2 CONFIGURACION (config/database.php)
+--------------------------------------------------------------------------------
+
+<?php
+/**
+ * Configuracion de la base de datos DSS AGAPROVA
+ */
+define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+define('DB_PORT', getenv('DB_PORT') ?: '3306');
+define('DB_NAME', getenv('DB_NAME') ?: 'dss_agaprova');
+define('DB_USER', getenv('DB_USER') ?: 'root');
+define('DB_PASS', getenv('DB_PASS') ?: '');
+define('DB_CHARSET', 'utf8mb4');
+
+define('APP_NAME', 'DSS AGAPROVA');
+define('APP_URL', getenv('APP_URL') ?: 'http://localhost/agaprova-dss');
+define('APP_ENV', getenv('APP_ENV') ?: 'production');
+define('SESSION_LIFETIME', 7200);
+
+define('PDF_FONT', 'DejaVu Sans');
+define('PDF_PAPER_SIZE', 'A4');
+define('PDF_ORIENTATION', 'portrait');
+
+define('UMBRAL_LLUVIA_ABAPO', 0.40);
+define('HORA_LIMITE_LLEGADA', '08:00:00');
+define('E_INV_REAL_DEFAULT', 0.58);
+
+date_default_timezone_set('America/La_Paz');
+
+2.3 PUNTO DE ENTRADA (public/index.php)
+--------------------------------------------------------------------------------
+
+<?php
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../helpers/functions.php';
+require_once __DIR__ . '/../app/Core/App.php';
+
+spl_autoload_register(function ($class) {
+    $prefix = 'App\';
+    $base_dir = __DIR__ . '/../app/';
+    $len = strlen($prefix);
+    if (strncmp($prefix, $class, $len) !== 0) return;
+    $relative_class = substr($class, $len);
+    $file = $base_dir . str_replace('\', '/', $relative_class) . '.php';
+    if (file_exists($file)) require $file;
+});
+
+try {
+    $app = new App\Core\App();
+    $app->run();
+} catch (\Exception $e) {
+    if (APP_ENV === 'development') {
+        echo '<h1>Error</h1><pre>' . htmlspecialchars($e->getMessage()) . '</pre>';
+    } else {
+        error_log($e->getMessage());
+        http_response_code(500);
+        require __DIR__ . '/../app/Views/errors/500.php';
+    }
+}
+
+2.4 ROUTER (app/Core/Router.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Core;
+
+class Router
+{
+    private array $routes = [];
+
+    public function get(string $path, string $handler, array $middleware = []): void
+    {
+        $this->addRoute('GET', $path, $handler, $middleware);
+    }
+
+    public function post(string $path, string $handler, array $middleware = []): void
+    {
+        $this->addRoute('POST', $path, $handler, $middleware);
+    }
+
+    private function addRoute(string $method, string $path, string $handler, array $middleware): void
+    {
+        $pattern = preg_replace('/\{([a-zA-Z_]+)\}/', '(?P<$1>[^/]+)', $path);
+        $pattern = '#^' . $pattern . '$#';
+        $this->routes[] = [
+            'method' => $method,
+            'pattern' => $pattern,
+            'handler' => $handler,
+            'middleware' => $middleware
+        ];
+    }
+
+    public function resolve(string $method, string $uri): mixed
+    {
+        $uri = parse_url($uri, PHP_URL_PATH);
+        $uri = rtrim($uri, '/') ?: '/';
+        $uri = urldecode($uri);
+
+        foreach ($this->routes as $route) {
+            if ($route['method'] !== $method) continue;
+            if (preg_match($route['pattern'], $uri, $matches)) {
+                $params = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY);
+
+                foreach ($route['middleware'] as $mw) {
+                    $mwClass = 'App\Core\Middleware\' . $mw;
+                    if (class_exists($mwClass)) (new $mwClass())->handle();
+                }
+
+                [$controllerClass, $methodName] = explode('@', $route['handler']);
+                $controllerClass = 'App\Controllers\' . $controllerClass;
+
+                if (!class_exists($controllerClass)) {
+                    throw new \RuntimeException("Controller {$controllerClass} not found");
+                }
+
+                $controller = new $controllerClass();
+                return $controller->$methodName(...$params);
+            }
+        }
+
+        http_response_code(404);
+        require __DIR__ . '/../Views/errors/404.php';
+        return null;
+    }
+}
+
+2.5 REQUEST (app/Core/Request.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Core;
+
+class Request
+{
+    private array $get;
+    private array $post;
+    private array $server;
+    private array $files;
+    private array $cookies;
+
+    public function __construct()
+    {
+        $this->get = $_GET;
+        $this->post = $_POST;
+        $this->server = $_SERVER;
+        $this->files = $_FILES;
+        $this->cookies = $_COOKIE;
+    }
+
+    public function get(string $key, mixed $default = null): mixed
+    {
+        return $this->get[$key] ?? $default;
+    }
+
+    public function post(string $key, mixed $default = null): mixed
+    {
+        return $this->post[$key] ?? $default;
+    }
+
+    public function all(): array
+    {
+        return $this->post;
+    }
+
+    public function server(string $key, mixed $default = null): mixed
+    {
+        return $this->server[$key] ?? $default;
+    }
+
+    public function method(): string
+    {
+        return strtoupper($this->server('REQUEST_METHOD', 'GET'));
+    }
+
+    public function uri(): string
+    {
+        $uri = $this->server('REQUEST_URI', '/');
+        $basePath = dirname($this->server('SCRIPT_NAME'));
+        if ($basePath !== '/' && strpos($uri, $basePath) === 0) {
+            $uri = substr($uri, strlen($basePath));
+        }
+        return $uri ?: '/';
+    }
+
+    public function baseUrl(): string
+    {
+        $scheme = (!empty($this->server('HTTPS')) && $this->server('HTTPS') !== 'off') ? 'https' : 'http';
+        $host = $this->server('HTTP_HOST');
+        return $scheme . '://' . $host;
+    }
+
+    public function isPost(): bool
+    {
+        return $this->method() === 'POST';
+    }
+
+    public function file(string $key): ?array
+    {
+        return $this->files[$key] ?? null;
+    }
+
+    public function csrfToken(): string
+    {
+        return Session::get('csrf_token');
+    }
+
+    public function verifyCsrf(): bool
+    {
+        $token = $this->post('_csrf_token');
+        if (!$token) return false;
+        return hash_equals(Session::get('csrf_token'), $token);
+    }
+}
+
+2.6 RESPONSE (app/Core/Response.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Core;
+
+class Response
+{
+    public static function redirect(string $url, int $statusCode = 302): void
+    {
+        http_response_code($statusCode);
+        header('Location: ' . $url);
+        exit;
+    }
+
+    public static function json(mixed $data, int $statusCode = 200): void
+    {
+        http_response_code($statusCode);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($data, JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    public static function view(string $view, array $data = []): void
+    {
+        extract($data);
+        $viewPath = __DIR__ . '/../Views/' . $view . '.php';
+        if (!file_exists($viewPath)) {
+            throw new \RuntimeException("View not found: {$view}");
+        }
+        require __DIR__ . '/../Views/layouts/header.php';
+        require $viewPath;
+        require __DIR__ . '/../Views/layouts/footer.php';
+        exit;
+    }
+}
+
+2.7 SESSION (app/Core/Session.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Core;
+
+class Session
+{
+    private static bool $started = false;
+
+    public static function start(): void
+    {
+        if (!self::$started && session_status() === PHP_SESSION_NONE) {
+            session_start();
+            self::$started = true;
+            if (!isset($_SESSION['_last_regenerate'])) {
+                $_SESSION['_last_regenerate'] = time();
+            } elseif (time() - $_SESSION['_last_regenerate'] > SESSION_LIFETIME) {
+                session_regenerate_id(true);
+                $_SESSION['_last_regenerate'] = time();
+            }
+            if (!isset($_SESSION['csrf_token'])) {
+                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+            }
+        }
+    }
+
+    public static function get(string $key, mixed $default = null): mixed
+    {
+        self::start();
+        return $_SESSION[$key] ?? $default;
+    }
+
+    public static function set(string $key, mixed $value): void
+    {
+        self::start();
+        $_SESSION[$key] = $value;
+    }
+
+    public static function remove(string $key): void
+    {
+        self::start();
+        unset($_SESSION[$key]);
+    }
+
+    public static function destroy(): void
+    {
+        self::start();
+        $_SESSION = [];
+        if (ini_get('session.use_cookies')) {
+            $params = session_get_cookie_params();
+            setcookie(session_name(), '', time() - 42000,
+                $params['path'], $params['domain'],
+                $params['secure'], $params['httponly']);
+        }
+        session_destroy();
+        self::$started = false;
+    }
+
+    public static function flash(string $key, string $message): void
+    {
+        self::set('_flash_' . $key, $message);
+    }
+
+    public static function getFlash(string $key, mixed $default = null): mixed
+    {
+        $value = self::get('_flash_' . $key, $default);
+        self::remove('_flash_' . $key);
+        return $value;
+    }
+
+    public static function hasFlash(string $key): bool
+    {
+        return isset($_SESSION['_flash_' . $key]);
+    }
+}
+
+2.8 DATABASE (app/Core/Database.php) - Singleton PDO
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Core;
+
+class Database
+{
+    private static ?Database $instance = null;
+    private \PDO $pdo;
+
+    private function __construct()
+    {
+        $dsn = sprintf('mysql:host=%s;port=%s;dbname=%s;charset=%s',
+            DB_HOST, DB_PORT, DB_NAME, DB_CHARSET);
+        $options = [
+            \PDO::ATTR_ERRMODE            => \PDO::ERRMODE_EXCEPTION,
+            \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
+            \PDO::ATTR_EMULATE_PREPARES   => false,
+            \PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci",
+        ];
+        $this->pdo = new \PDO($dsn, DB_USER, DB_PASS, $options);
+    }
+
+    public static function getInstance(): self
+    {
+        if (self::$instance === null) self::$instance = new self();
+        return self::$instance;
+    }
+
+    public function query(string $sql, array $params = []): \PDOStatement
+    {
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        return $stmt;
+    }
+
+    public function execute(string $sql, array $params = []): int
+    {
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->rowCount();
+    }
+
+    public function lastInsertId(): string { return $this->pdo->lastInsertId(); }
+    public function beginTransaction(): bool { return $this->pdo->beginTransaction(); }
+    public function commit(): bool { return $this->pdo->commit(); }
+    public function rollback(): bool { return $this->pdo->rollBack(); }
+    public function getPdo(): \PDO { return $this->pdo; }
+    private function __clone() {}
+    public function __wakeup() { throw new \Exception('Cannot unserialize singleton'); }
+}
+
+2.9 MODEL (app/Core/Model.php) - Active Record base
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Core;
+
+abstract class Model
+{
+    protected static string $table = '';
+    protected static string $primaryKey = 'id';
+    protected array $attributes = [];
+    protected array $original = [];
+    protected bool $exists = false;
+
+    public function __construct(array $attributes = [])
+    {
+        $this->fill($attributes);
+    }
+
+    public function fill(array $attributes): void
+    {
+        foreach ($attributes as $key => $value) {
+            $this->attributes[$key] = $value;
+        }
+    }
+
+    public static function all(): array
+    {
+        $db = Database::getInstance();
+        $stmt = $db->query("SELECT * FROM " . static::$table . " ORDER BY id DESC");
+        return static::hydrate($stmt->fetchAll());
+    }
+
+    public static function find(int|string $id): ?static
+    {
+        $db = Database::getInstance();
+        $stmt = $db->query(
+            "SELECT * FROM " . static::$table . " WHERE " . static::$primaryKey . " = ?", [$id]);
+        $data = $stmt->fetch();
+        if (!$data) return null;
+        $model = new static();
+        $model->attributes = $data;
+        $model->original = $data;
+        $model->exists = true;
+        return $model;
+    }
+
+    public static function where(string $column, mixed $value, string $operator = '='): array
+    {
+        $db = Database::getInstance();
+        $stmt = $db->query(
+            "SELECT * FROM " . static::$table . " WHERE {$column} {$operator} ? ORDER BY id DESC", [$value]);
+        return static::hydrate($stmt->fetchAll());
+    }
+
+    public static function firstWhere(string $column, mixed $value, string $operator = '='): ?static
+    {
+        $results = static::where($column, $value, $operator);
+        return $results[0] ?? null;
+    }
+
+    public function save(): bool
+    {
+        $db = Database::getInstance();
+        if ($this->exists) {
+            $sets = []; $params = [];
+            foreach ($this->attributes as $key => $value) {
+                if ($key === static::$primaryKey) continue;
+                if ($value !== ($this->original[$key] ?? null)) {
+                    $sets[] = "{$key} = ?"; $params[] = $value;
+                }
+            }
+            if (empty($sets)) return true;
+            $params[] = $this->attributes[static::$primaryKey];
+            $sql = "UPDATE " . static::$table . " SET " . implode(', ', $sets)
+                 . " WHERE " . static::$primaryKey . " = ?";
+            $db->execute($sql, $params);
+            $this->original = $this->attributes;
+            return true;
+        } else {
+            $columns = array_keys($this->attributes);
+            $placeholders = array_fill(0, count($columns), '?');
+            $sql = "INSERT INTO " . static::$table . " (" . implode(', ', $columns) . ")"
+                 . " VALUES (" . implode(', ', $placeholders) . ")";
+            $db->execute($sql, array_values($this->attributes));
+            $this->attributes[static::$primaryKey] = $db->lastInsertId();
+            $this->original = $this->attributes;
+            $this->exists = true;
+            return true;
+        }
+    }
+
+    public function delete(): bool
+    {
+        if (!$this->exists) return false;
+        $db = Database::getInstance();
+        $db->execute("DELETE FROM " . static::$table . " WHERE " . static::$primaryKey . " = ?",
+            [$this->attributes[static::$primaryKey]]);
+        $this->exists = false;
+        return true;
+    }
+
+    public function __get(string $name): mixed { return $this->attributes[$name] ?? null; }
+    public function __set(string $name, mixed $value): void { $this->attributes[$name] = $value; }
+    public function __isset(string $name): bool { return isset($this->attributes[$name]); }
+    public function toArray(): array { return $this->attributes; }
+
+    protected static function hydrate(array $records): array
+    {
+        $models = [];
+        foreach ($records as $data) {
+            $model = new static();
+            $model->attributes = $data;
+            $model->original = $data;
+            $model->exists = true;
+            $models[] = $model;
+        }
+        return $models;
+    }
+
+    public static function count(): int
+    {
+        $db = Database::getInstance();
+        $stmt = $db->query("SELECT COUNT(*) as total FROM " . static::$table);
+        return (int)$stmt->fetch()['total'];
+    }
+}
+
+2.10 CONTROLLER (app/Core/Controller.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Core;
+
+abstract class Controller
+{
+    protected Request $request;
+    protected Response $response;
+    protected Validator $validator;
+
+    public function __construct()
+    {
+        $this->request = new Request();
+        $this->response = new Response();
+        $this->validator = new Validator();
+    }
+
+    protected function view(string $view, array $data = []): void { Response::view($view, $data); }
+    protected function redirect(string $url): void { Response::redirect($url); }
+    protected function json(mixed $data, int $statusCode = 200): void { Response::json($data, $statusCode); }
+
+    protected function validated(array $rules): array
+    {
+        $data = $this->request->all();
+        $this->validator->validate($data, $rules);
+        if ($this->validator->hasErrors()) {
+            Session::flash('errors', $this->validator->getErrors());
+            Session::flash('old', $data);
+            Response::redirect($this->request->server('HTTP_REFERER', '/'));
+        }
+        return $data;
+    }
+
+    protected function verifyCsrfOrFail(): void
+    {
+        if (!$this->request->verifyCsrf()) {
+            Session::flash('error', 'Token CSRF invalido. Intente nuevamente.');
+            Response::redirect($this->request->server('HTTP_REFERER', '/'));
+        }
+    }
+}
+
+2.11 VALIDATOR (app/Core/Validator.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Core;
+
+class Validator
+{
+    private array $errors = [];
+
+    public function validate(array $data, array $rules): bool
+    {
+        $this->errors = [];
+        foreach ($rules as $field => $ruleSet) {
+            $ruleList = is_array($ruleSet) ? $ruleSet : explode('|', $ruleSet);
+            $value = $data[$field] ?? null;
+            foreach ($ruleList as $rule) {
+                $params = [];
+                if (str_contains($rule, ':')) {
+                    [$rule, $paramStr] = explode(':', $rule, 2);
+                    $params = explode(',', $paramStr);
+                }
+                $methodName = 'rule' . ucfirst($rule);
+                if (method_exists($this, $methodName)) {
+                    $this->$methodName($field, $value, $params);
+                }
+            }
+        }
+        return empty($this->errors);
+    }
+
+    public function getErrors(): array { return $this->errors; }
+    public function hasErrors(): bool { return !empty($this->errors); }
+
+    private function ruleRequired(string $field, mixed $value, array $params): void
+    {
+        if ($value === null || $value === '' || $value === [])
+            $this->errors[$field][] = 'El campo es obligatorio.';
+    }
+
+    private function ruleNumeric(string $field, mixed $value, array $params): void
+    {
+        if ($value !== null && $value !== '' && !is_numeric($value))
+            $this->errors[$field][] = 'Debe ser un valor numerico.';
+    }
+
+    private function ruleInteger(string $field, mixed $value, array $params): void
+    {
+        if ($value !== null && $value !== '' && filter_var($value, FILTER_VALIDATE_INT) === false)
+            $this->errors[$field][] = 'Debe ser un numero entero.';
+    }
+
+    private function ruleMin(string $field, mixed $value, array $params): void
+    {
+        $min = (float)$params[0];
+        if (is_numeric($value) && (float)$value < $min)
+            $this->errors[$field][] = "El valor minimo es {$min}.";
+    }
+
+    private function ruleMax(string $field, mixed $value, array $params): void
+    {
+        $max = (float)$params[0];
+        if (is_numeric($value) && (float)$value > $max)
+            $this->errors[$field][] = "El valor maximo es {$max}.";
+    }
+
+    private function ruleIn(string $field, mixed $value, array $params): void
+    {
+        if ($value !== null && $value !== '' && !in_array((string)$value, $params))
+            $this->errors[$field][] = 'El valor seleccionado no es valido.';
+    }
+}
+
+2.12 AUTH (app/Core/Auth.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Core;
+
+class Auth
+{
+    public static function attempt(string $username, string $password): bool
+    {
+        $db = Database::getInstance();
+        $stmt = $db->query("SELECT * FROM usuarios WHERE username = ? LIMIT 1", [$username]);
+        $user = $stmt->fetch();
+        if ($user && password_verify($password, $user['password_hash'])) {
+            Session::set('user_id', $user['id']);
+            Session::set('user_name', $user['nombre']);
+            Session::set('user_username', $user['username']);
+            Session::set('logged_in', true);
+            session_regenerate_id(true);
+            return true;
+        }
+        return false;
+    }
+
+    public static function check(): bool { return Session::get('logged_in', false) === true; }
+    public static function id(): ?int { return Session::get('user_id'); }
+    public static function user(): ?string { return Session::get('user_name'); }
+    public static function logout(): void { Session::destroy(); }
+}
+
+2.13 APP (app/Core/App.php) - Front Controller con rutas
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Core;
+
+class App
+{
+    private Router $router;
+
+    public function __construct()
+    {
+        Session::start();
+        $this->router = new Router();
+        $this->registerRoutes();
+    }
+
+    private function registerRoutes(): void
+    {
+        $auth = ['AuthMiddleware'];
+
+        // Publicas
+        $this->router->get('/login', 'AuthController@showLoginForm');
+        $this->router->post('/login', 'AuthController@login');
+        $this->router->get('/logout', 'AuthController@logout');
+
+        // Protegidas
+        $this->router->get('/', 'DashboardController@index', $auth);
+        $this->router->get('/dashboard', 'DashboardController@index', $auth);
+
+        $this->router->get('/lotes', 'LoteController@index', $auth);
+        $this->router->get('/lotes/crear', 'LoteController@create', $auth);
+        $this->router->post('/lotes/guardar', 'LoteController@store', $auth);
+        $this->router->get('/lotes/{id}', 'LoteController@show', $auth);
+        $this->router->post('/lotes/{id}/eliminar', 'LoteController@destroy', $auth);
+
+        $this->router->get('/precios', 'PrecioController@index', $auth);
+        $this->router->get('/precios/crear', 'PrecioController@create', $auth);
+        $this->router->post('/precios/guardar', 'PrecioController@store', $auth);
+        $this->router->get('/precios/{id}/editar', 'PrecioController@edit', $auth);
+        $this->router->post('/precios/{id}/actualizar', 'PrecioController@update', $auth);
+
+        $this->router->get('/clima', 'ClimaController@index', $auth);
+        $this->router->get('/clima/crear', 'ClimaController@create', $auth);
+        $this->router->post('/clima/guardar', 'ClimaController@store', $auth);
+
+        $this->router->get('/bloqueos', 'BloqueoController@index', $auth);
+        $this->router->get('/bloqueos/crear', 'BloqueoController@create', $auth);
+        $this->router->post('/bloqueos/guardar', 'BloqueoController@store', $auth);
+        $this->router->post('/bloqueos/{id}/toggle', 'BloqueoController@toggle', $auth);
+
+        $this->router->get('/costos', 'CostoFleteController@index', $auth);
+        $this->router->get('/costos/crear', 'CostoFleteController@create', $auth);
+        $this->router->post('/costos/guardar', 'CostoFleteController@store', $auth);
+
+        $this->router->get('/simplex', 'SimplexController@index', $auth);
+        $this->router->post('/simplex/calcular', 'SimplexController@calcular', $auth);
+
+        $this->router->get('/simulacion', 'SimulacionController@index', $auth);
+        $this->router->post('/simulacion/calcular', 'SimulacionController@calcular', $auth);
+        $this->router->get('/simulacion/{codigo}', 'SimulacionController@show', $auth);
+
+        $this->router->get('/reportes', 'ReporteController@index', $auth);
+        $this->router->post('/reportes/generar', 'ReporteController@generar', $auth);
+        $this->router->get('/reportes/{id}/ver', 'ReporteController@show', $auth);
+        $this->router->get('/reportes/{id}/descargar', 'ReporteController@descargar', $auth);
+    }
+
+    public function run(): void
+    {
+        $this->router->resolve($_SERVER['REQUEST_METHOD'], $_SERVER['REQUEST_URI']);
+    }
+}
+
+2.14 AUTH MIDDLEWARE (app/Core/Middleware/AuthMiddleware.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Core\Middleware;
+
+use App\Core\Auth;
+use App\Core\Session;
+use App\Core\Response;
+
+class AuthMiddleware
+{
+    public function handle(): void
+    {
+        if (!Auth::check()) {
+            Session::flash('error', 'Debe iniciar sesion para acceder.');
+            Response::redirect('/login');
+        }
+    }
+}
+
+2.15 HELPERS (helpers/functions.php)
+--------------------------------------------------------------------------------
+
+<?php
+
+function e(string $value): string {
+    return htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+}
+
+function csrf_field(): string {
+    $token = \App\Core\Session::get('csrf_token');
+    return '<input type="hidden" name="_csrf_token" value="' . e($token) . '">';
+}
+
+function old(string $key, mixed $default = ''): mixed {
+    $old = \App\Core\Session::getFlash('old');
+    return $old[$key] ?? $default;
+}
+
+function error(string $key): ?string {
+    $errors = \App\Core\Session::getFlash('errors');
+    return $errors[$key][0] ?? null;
+}
+
+function has_error(string $key): bool {
+    $errors = \App\Core\Session::getFlash('errors');
+    return isset($errors[$key]);
+}
+
+function format_currency(float $amount): string {
+    return 'Bs ' . number_format($amount, 2, ',', '.');
+}
+
+function format_date(string $date, string $format = 'd/m/Y'): string {
+    $dt = new DateTime($date);
+    return $dt->format($format);
+}
+
+function asset(string $path): string {
+    return APP_URL . '/assets/' . ltrim($path, '/');
+}
+
+function route(string $path): string {
+    return APP_URL . '/' . ltrim($path, '/');
+}
+
+function flash_message(): string {
+    $html = '';
+    if (\App\Core\Session::hasFlash('success')) {
+        $msg = \App\Core\Session::getFlash('success');
+        $html = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> ' . e($msg) . '</div>';
+    }
+    if (\App\Core\Session::hasFlash('error')) {
+        $msg = \App\Core\Session::getFlash('error');
+        $html = '<div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> ' . e($msg) . '</div>';
+    }
+    return $html;
+}
+
+2.16 .HTACCESS
+--------------------------------------------------------------------------------
+
+-- agaprova-dss/.htaccess (raiz)
+RewriteEngine On
+RewriteRule ^$ public/ [L]
+RewriteRule (.*) public/$1 [L]
+
+-- agaprova-dss/public/.htaccess
+RewriteEngine On
+RewriteBase /agaprova-dss/public/
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [QSA,L]
+<FilesMatch "\.(env|sql|md|log)$">
+    Deny from all
+</FilesMatch>
+Options -Indexes
+
+2.17 COMPOSER.JSON
+--------------------------------------------------------------------------------
+
+{
+    "name": "agaprova/dss",
+    "description": "DSS AGAPROVA - Sistema de Soporte a la Decision",
+    "type": "project",
+    "require": {
+        "php": ">=8.0",
+        "dompdf/dompdf": "^2.0"
+    },
+    "autoload": {
+        "psr-4": { "App\": "app/" },
+        "files": ["helpers/functions.php"]
+    }
+}
+================================================================================
+FASE 3: CONTROLADORES
+================================================================================
+
+3.1 AUTHCONTROLLER (app/Controllers/AuthController.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Controllers;
+
+use App\Core\Controller;
+use App\Core\Auth;
+use App\Core\Response;
+use App\Core\Session;
+
+class AuthController extends Controller
+{
+    public function showLoginForm(): void
+    {
+        if (Auth::check()) Response::redirect('/dashboard');
+        $this->view('auth/login');
+    }
+
+    public function login(): void
+    {
+        $this->verifyCsrfOrFail();
+        $username = $this->request->post('username');
+        $password = $this->request->post('password');
+
+        if (empty($username) || empty($password)) {
+            Session::flash('error', 'Usuario y contrasena son obligatorios.');
+            Session::flash('old', ['username' => $username]);
+            Response::redirect('/login');
+        }
+
+        if (Auth::attempt($username, $password)) {
+            Session::flash('success', 'Bienvenido, ' . Auth::user() . '.');
+            Response::redirect('/dashboard');
+        } else {
+            Session::flash('error', 'Usuario o contrasena incorrectos.');
+            Session::flash('old', ['username' => $username]);
+            Response::redirect('/login');
+        }
+    }
+
+    public function logout(): void
+    {
+        Auth::logout();
+        Session::flash('success', 'Sesion cerrada correctamente.');
+        Response::redirect('/login');
+    }
+}
+
+3.2 DASHBOARDCONTROLLER (app/Controllers/DashboardController.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Controllers;
+
+use App\Core\Controller;
+use App\Core\Auth;
+use App\Core\Database;
+
+class DashboardController extends Controller
+{
+    public function index(): void
+    {
+        $db = Database::getInstance();
+
+        $ultimoLote = $db->query(
+            "SELECT l.*, c.nombre AS condicion, e.nombre AS estacion
+             FROM lotes_ganado l
+             JOIN condiciones_ganado c ON l.condicion_id = c.id
+             JOIN estaciones e ON l.estacion_id = e.id
+             WHERE l.activo = 1 ORDER BY l.id DESC LIMIT 1"
+        )->fetch();
+
+        $precios = $db->query(
+            "SELECT m.nombre, p.precio_kg, p.fecha_registro
+             FROM precios p JOIN mercados m ON p.mercado_id = m.id
+             WHERE p.activo = 1 ORDER BY m.id"
+        )->fetchAll();
+
+        $clima = $db->query(
+            "SELECT * FROM clima WHERE activo = 1 ORDER BY id DESC LIMIT 1"
+        )->fetch();
+
+        $bloqueos = $db->query(
+            "SELECT r.codigo, r.nombre, b.activo
+             FROM bloqueos b JOIN rutas r ON b.ruta_id = r.id WHERE b.activo = 1"
+        )->fetchAll();
+
+        $this->view('dashboard/index', [
+            'ultimoLote' => $ultimoLote,
+            'precios' => $precios,
+            'clima' => $clima,
+            'bloqueos' => $bloqueos,
+            'userName' => Auth::user()
+        ]);
+    }
+}
+
+3.3 LOTECONTROLLER (app/Controllers/LoteController.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Controllers;
+
+use App\Core\Controller;
+use App\Core\Database;
+use App\Core\Response;
+use App\Core\Session;
+
+class LoteController extends Controller
+{
+    public function index(): void
+    {
+        $db = Database::getInstance();
+        $lotes = $db->query(
+            "SELECT l.*, c.nombre AS condicion, e.nombre AS estacion
+             FROM lotes_ganado l
+             JOIN condiciones_ganado c ON l.condicion_id = c.id
+             JOIN estaciones e ON l.estacion_id = e.id
+             WHERE l.activo = 1 ORDER BY l.id DESC"
+        )->fetchAll();
+        $this->view('lotes/index', ['lotes' => $lotes]);
+    }
+
+    public function create(): void
+    {
+        $db = Database::getInstance();
+        $this->view('lotes/create', [
+            'condiciones' => $db->query("SELECT * FROM condiciones_ganado")->fetchAll(),
+            'estaciones' => $db->query("SELECT * FROM estaciones")->fetchAll()
+        ]);
+    }
+
+    public function store(): void
+    {
+        $this->verifyCsrfOrFail();
+        $data = $this->validated([
+            'cabezas' => 'required|integer|min:1',
+            'peso_promedio_kg' => 'required|numeric|min:0.01',
+            'condicion_id' => 'required|integer|min:1',
+            'estacion_id' => 'required|integer|min:1',
+            'hora_salida' => 'required'
+        ]);
+        $db = Database::getInstance();
+        $db->execute(
+            "INSERT INTO lotes_ganado (cabezas, peso_promedio_kg, condicion_id, estacion_id, hora_salida, fecha_registro)
+             VALUES (?, ?, ?, ?, ?, CURDATE())",
+            [(int)$data['cabezas'], (float)$data['peso_promedio_kg'],
+             (int)$data['condicion_id'], (int)$data['estacion_id'], $data['hora_salida']]
+        );
+        Session::flash('success', 'Lote registrado exitosamente.');
+        Response::redirect('/lotes');
+    }
+
+    public function show(int $id): void
+    {
+        $db = Database::getInstance();
+        $lote = $db->query(
+            "SELECT l.*, c.nombre AS condicion, c.factor AS factor_condicion,
+                    e.nombre AS estacion, e.factor AS factor_estacion
+             FROM lotes_ganado l
+             JOIN condiciones_ganado c ON l.condicion_id = c.id
+             JOIN estaciones e ON l.estacion_id = e.id
+             WHERE l.id = ?", [$id]
+        )->fetch();
+        if (!$lote) { Session::flash('error', 'Lote no encontrado.'); Response::redirect('/lotes'); }
+        $this->view('lotes/show', ['lote' => $lote]);
+    }
+
+    public function destroy(int $id): void
+    {
+        $this->verifyCsrfOrFail();
+        Database::getInstance()->execute("UPDATE lotes_ganado SET activo = 0 WHERE id = ?", [$id]);
+        Session::flash('success', 'Lote eliminado.');
+        Response::redirect('/lotes');
+    }
+}
+
+3.4 PRECIOCONTROLLER (app/Controllers/PrecioController.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Controllers;
+
+use App\Core\Controller;
+use App\Core\Database;
+use App\Core\Response;
+use App\Core\Session;
+
+class PrecioController extends Controller
+{
+    public function index(): void
+    {
+        $db = Database::getInstance();
+        $precios = $db->query(
+            "SELECT p.*, m.nombre AS mercado, m.ciudad
+             FROM precios p JOIN mercados m ON p.mercado_id = m.id
+             WHERE p.activo = 1 ORDER BY p.id DESC"
+        )->fetchAll();
+        $this->view('precios/index', ['precios' => $precios]);
+    }
+
+    public function create(): void
+    {
+        $db = Database::getInstance();
+        $this->view('precios/create', ['mercados' => $db->query("SELECT * FROM mercados WHERE activo = 1")->fetchAll()]);
+    }
+
+    public function store(): void
+    {
+        $this->verifyCsrfOrFail();
+        $data = $this->validated([
+            'mercado_id' => 'required|integer|min:1',
+            'precio_kg' => 'required|numeric|min:0.01'
+        ]);
+        $precio = (float)$data['precio_kg'];
+        if ($precio < 1 || $precio > 100) {
+            Session::flash('error', 'El precio debe estar entre 1 y 100 Bs/kg.');
+            Response::redirect('/precios/crear');
+        }
+        $db = Database::getInstance();
+        $db->execute("UPDATE precios SET activo = 0 WHERE mercado_id = ?", [(int)$data['mercado_id']]);
+        $db->execute("INSERT INTO precios (mercado_id, precio_kg, fecha_registro, activo) VALUES (?, ?, CURDATE(), 1)",
+            [(int)$data['mercado_id'], $precio]);
+        Session::flash('success', 'Precio registrado.');
+        Response::redirect('/precios');
+    }
+
+    public function edit(int $id): void
+    {
+        $db = Database::getInstance();
+        $precio = $db->query("SELECT p.*, m.nombre AS mercado FROM precios p JOIN mercados m ON p.mercado_id = m.id WHERE p.id = ?", [$id])->fetch();
+        if (!$precio) { Session::flash('error', 'Precio no encontrado.'); Response::redirect('/precios'); }
+        $this->view('precios/edit', ['precio' => $precio, 'mercados' => $db->query("SELECT * FROM mercados WHERE activo = 1")->fetchAll()]);
+    }
+
+    public function update(int $id): void
+    {
+        $this->verifyCsrfOrFail();
+        $data = $this->validated(['mercado_id' => 'required|integer|min:1', 'precio_kg' => 'required|numeric|min:0.01']);
+        Database::getInstance()->execute("UPDATE precios SET mercado_id = ?, precio_kg = ?, fecha_registro = CURDATE() WHERE id = ?",
+            [(int)$data['mercado_id'], (float)$data['precio_kg'], $id]);
+        Session::flash('success', 'Precio actualizado.');
+        Response::redirect('/precios');
+    }
+}
+
+3.5 CLIMACONTROLLER (app/Controllers/ClimaController.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Controllers;
+
+use App\Core\Controller;
+use App\Core\Database;
+use App\Core\Response;
+use App\Core\Session;
+
+class ClimaController extends Controller
+{
+    public function index(): void
+    {
+        $db = Database::getInstance();
+        $this->view('clima/index', ['climas' => $db->query("SELECT * FROM clima WHERE activo = 1 ORDER BY id DESC")->fetchAll()]);
+    }
+
+    public function create(): void
+    {
+        $this->view('clima/create');
+    }
+
+    public function store(): void
+    {
+        $this->verifyCsrfOrFail();
+        $data = $this->validated(['probabilidad_lluvia' => 'required|numeric|min:0|max:1']);
+        $prob = (float)$data['probabilidad_lluvia'];
+        if ($prob < 0 || $prob > 1) {
+            Session::flash('error', 'La probabilidad debe estar entre 0 y 1.');
+            Response::redirect('/clima/crear');
+        }
+        $db = Database::getInstance();
+        $db->execute("UPDATE clima SET activo = 0 WHERE activo = 1");
+        $db->execute("INSERT INTO clima (probabilidad_lluvia, ubicacion, fecha_registro, activo) VALUES (?, 'Abapo', CURDATE(), 1)", [$prob]);
+        if ($prob >= 0.40) {
+            Session::flash('warning', 'ALERTA: Probabilidad de lluvia en Abapo del ' . ($prob*100) . '%. Ruta Ipati-Abapo bloqueada.');
+        }
+        Session::flash('success', 'Datos climaticos registrados.');
+        Response::redirect('/clima');
+    }
+}
+
+3.6 BLOQUEOCONTROLLER (app/Controllers/BloqueoController.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Controllers;
+
+use App\Core\Controller;
+use App\Core\Database;
+use App\Core\Response;
+use App\Core\Session;
+
+class BloqueoController extends Controller
+{
+    public function index(): void
+    {
+        $db = Database::getInstance();
+        $bloqueos = $db->query(
+            "SELECT b.*, r.codigo, r.nombre AS ruta, r.destino
+             FROM bloqueos b JOIN rutas r ON b.ruta_id = r.id ORDER BY b.id DESC"
+        )->fetchAll();
+        $this->view('bloqueos/index', ['bloqueos' => $bloqueos]);
+    }
+
+    public function create(): void
+    {
+        $db = Database::getInstance();
+        $this->view('bloqueos/create', ['rutas' => $db->query("SELECT * FROM rutas WHERE activo = 1")->fetchAll()]);
+    }
+
+    public function store(): void
+    {
+        $this->verifyCsrfOrFail();
+        $data = $this->validated(['ruta_id' => 'required|integer|min:1', 'activo' => 'required|in:0,1']);
+        $db = Database::getInstance();
+        $db->execute("UPDATE bloqueos SET activo = 0 WHERE ruta_id = ?", [(int)$data['ruta_id']]);
+        $db->execute("INSERT INTO bloqueos (ruta_id, activo, fecha_inicio, fecha_fin) VALUES (?, ?, CURDATE(), NULL)",
+            [(int)$data['ruta_id'], (int)$data['activo']]);
+        $estado = (int)$data['activo'] === 1 ? 'BLOQUEADA' : 'HABILITADA';
+        Session::flash('success', "Ruta {$estado} exitosamente.");
+        Response::redirect('/bloqueos');
+    }
+
+    public function toggle(int $id): void
+    {
+        $this->verifyCsrfOrFail();
+        $db = Database::getInstance();
+        $bloqueo = $db->query("SELECT * FROM bloqueos WHERE id = ?", [$id])->fetch();
+        if (!$bloqueo) { Session::flash('error', 'Bloqueo no encontrado.'); Response::redirect('/bloqueos'); }
+        $nuevoEstado = $bloqueo['activo'] ? 0 : 1;
+        $db->execute("UPDATE bloqueos SET activo = ?, fecha_inicio = CURDATE() WHERE id = ?", [$nuevoEstado, $id]);
+        Session::flash('success', 'Estado del bloqueo actualizado.');
+        Response::redirect('/bloqueos');
+    }
+}
+
+3.7 COSTOFLETECONTROLLER (app/Controllers/CostoFleteController.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Controllers;
+
+use App\Core\Controller;
+use App\Core\Database;
+use App\Core\Response;
+use App\Core\Session;
+
+class CostoFleteController extends Controller
+{
+    public function index(): void
+    {
+        $db = Database::getInstance();
+        $costos = $db->query(
+            "SELECT cf.*, r.codigo, r.nombre AS ruta, r.destino
+             FROM costos_flete cf JOIN rutas r ON cf.ruta_id = r.id
+             WHERE cf.activo = 1 ORDER BY cf.id DESC"
+        )->fetchAll();
+        $this->view('costos/index', ['costos' => $costos]);
+    }
+
+    public function create(): void
+    {
+        $db = Database::getInstance();
+        $this->view('costos/create', ['rutas' => $db->query("SELECT * FROM rutas WHERE activo = 1")->fetchAll()]);
+    }
+
+    public function store(): void
+    {
+        $this->verifyCsrfOrFail();
+        $data = $this->validated(['ruta_id' => 'required|integer|min:1', 'costo_cabeza' => 'required|numeric|min:0.01']);
+        $db = Database::getInstance();
+        $db->execute("UPDATE costos_flete SET activo = 0 WHERE ruta_id = ?", [(int)$data['ruta_id']]);
+        $db->execute("INSERT INTO costos_flete (ruta_id, costo_cabeza, semana_inicio, activo) VALUES (?, ?, CURDATE(), 1)",
+            [(int)$data['ruta_id'], (float)$data['costo_cabeza']]);
+        Session::flash('success', 'Costo de flete registrado.');
+        Response::redirect('/costos');
+    }
+}
+
+3.8 SIMPLEXCONTROLLER (app/Controllers/SimplexController.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Controllers;
+
+use App\Core\Controller;
+use App\Core\Database;
+use App\Core\Response;
+use App\Core\Session;
+use App\Services\SimplexSolver;
+
+class SimplexController extends Controller
+{
+    private SimplexSolver $simplexSolver;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->simplexSolver = new SimplexSolver();
+    }
+
+    public function index(): void
+    {
+        $db = Database::getInstance();
+        $lote = $db->query(
+            "SELECT l.*, c.nombre AS condicion, c.factor AS factor_condicion,
+                    e.nombre AS estacion, e.factor AS factor_estacion
+             FROM lotes_ganado l
+             JOIN condiciones_ganado c ON l.condicion_id = c.id
+             JOIN estaciones e ON l.estacion_id = e.id
+             WHERE l.activo = 1 ORDER BY l.id DESC LIMIT 1"
+        )->fetch();
+        $precios = $db->query("SELECT p.*, m.id AS mercado_id_ref FROM precios p JOIN mercados m ON p.mercado_id = m.id WHERE p.activo = 1")->fetchAll();
+        $costos = $db->query("SELECT cf.*, r.codigo FROM costos_flete cf JOIN rutas r ON cf.ruta_id = r.id WHERE cf.activo = 1")->fetchAll();
+        $clima = $db->query("SELECT * FROM clima WHERE activo = 1 ORDER BY id DESC LIMIT 1")->fetch();
+        $bloqueos = $db->query("SELECT b.*, r.codigo FROM bloqueos b JOIN rutas r ON b.ruta_id = r.id WHERE b.activo = 1")->fetchAll();
+
+        $this->view('simplex/resultado', [
+            'lote' => $lote, 'precios' => $precios, 'costos' => $costos,
+            'clima' => $clima, 'bloqueos' => $bloqueos, 'resultado' => null
+        ]);
+    }
+
+    public function calcular(): void
+    {
+        $this->verifyCsrfOrFail();
+        $db = Database::getInstance();
+
+        $lote = $db->query(
+            "SELECT l.*, c.factor AS factor_condicion, e.factor AS factor_estacion
+             FROM lotes_ganado l
+             JOIN condiciones_ganado c ON l.condicion_id = c.id
+             JOIN estaciones e ON l.estacion_id = e.id
+             WHERE l.activo = 1 ORDER BY l.id DESC LIMIT 1"
+        )->fetch();
+        if (!$lote) { Session::flash('error', 'No hay lotes registrados.'); Response::redirect('/lotes/crear'); }
+
+        $precios = $db->query("SELECT p.*, m.id AS mercado_id_ref FROM precios p JOIN mercados m ON p.mercado_id = m.id WHERE p.activo = 1")->fetchAll();
+        if (count($precios) < 2) { Session::flash('error', 'Registre precios para ambos mercados.'); Response::redirect('/precios/crear'); }
+
+        $costos = $db->query("SELECT cf.*, r.codigo FROM costos_flete cf JOIN rutas r ON cf.ruta_id = r.id WHERE cf.activo = 1")->fetchAll();
+        if (count($costos) < 4) { Session::flash('error', 'Registre costos para las 4 rutas.'); Response::redirect('/costos/crear'); }
+
+        $clima = $db->query("SELECT * FROM clima WHERE activo = 1 ORDER BY id DESC LIMIT 1")->fetch();
+        $bloqueos = $db->query("SELECT b.*, r.codigo FROM bloqueos b JOIN rutas r ON b.ruta_id = r.id WHERE b.activo = 1")->fetchAll();
+
+        // Precios por mercado
+        $precioSC = $precioCB = 0;
+        foreach ($precios as $p) {
+            if ($p['mercado_id_ref'] == 1) $precioSC = (float)$p['precio_kg'];
+            if ($p['mercado_id_ref'] == 2) $precioCB = (float)$p['precio_kg'];
+        }
+
+        // Costos por ruta
+        $costosPorRuta = [];
+        foreach ($costos as $c) $costosPorRuta[$c['codigo']] = (float)$c['costo_cabeza'];
+
+        // Bloqueos activos
+        $bloqueosActivos = [];
+        foreach ($bloqueos as $b) $bloqueosActivos[$b['codigo']] = true;
+
+        // E_inv_efectiva
+        $eInvEfectiva = (float)$lote['peso_promedio_kg'] * (float)$lote['factor_estacion'] * (float)$lote['factor_condicion'];
+
+        // Calcular Mi
+        $Mi = [
+            'R01' => ($precioSC * $eInvEfectiva) - ($costosPorRuta['R01'] ?? 0),
+            'R02' => ($precioCB * $eInvEfectiva) - ($costosPorRuta['R02'] ?? 0),
+            'R03' => ($precioSC * $eInvEfectiva) - ($costosPorRuta['R03'] ?? 0),
+            'R04' => ($precioCB * $eInvEfectiva) - ($costosPorRuta['R04'] ?? 0),
+        ];
+        $tiempos = ['R01' => 6.5, 'R02' => 9.0, 'R03' => 11.0, 'R04' => 10.0];
+
+        $resultado = $this->simplexSolver->resolver([
+            'total_cabezas' => (int)$lote['cabezas'],
+            'Mi' => $Mi,
+            'bloqueos' => $bloqueosActivos,
+            'tiempos' => $tiempos,
+            'hora_salida' => $lote['hora_salida'],
+            'prob_lluvia' => $clima ? (float)$clima['probabilidad_lluvia'] : 0
+        ]);
+
+        Session::set('resultado_simplex', $resultado);
+
+        $this->view('simplex/resultado', [
+            'lote' => $lote, 'precios' => $precios, 'costos' => $costos,
+            'clima' => $clima, 'bloqueos' => $bloqueos,
+            'resultado' => $resultado, 'Mi' => $Mi, 'eInvEfectiva' => $eInvEfectiva
+        ]);
+    }
+}
+
+3.9 SIMULACIONCONTROLLER (app/Controllers/SimulacionController.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Controllers;
+
+use App\Core\Controller;
+use App\Core\Database;
+use App\Core\Response;
+use App\Core\Session;
+use App\Services\SimplexSolver;
+
+class SimulacionController extends Controller
+{
+    private SimplexSolver $simplexSolver;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->simplexSolver = new SimplexSolver();
+    }
+
+    public function index(): void
+    {
+        $db = Database::getInstance();
+        $this->view('simulacion/index', [
+            'escenarios' => $db->query("SELECT * FROM escenarios_simulacion ORDER BY codigo")->fetchAll()
+        ]);
+    }
+
+    public function calcular(): void
+    {
+        $this->verifyCsrfOrFail();
+        $cabezas = (int)$this->request->post('cabezas', 60);
+        $precioSC = (float)$this->request->post('precio_sc', 32);
+        $precioCB = (float)$this->request->post('precio_cb', 34);
+        $costos = [
+            'R01' => (float)$this->request->post('costo_c1', 420),
+            'R02' => (float)$this->request->post('costo_c2', 510),
+            'R03' => (float)$this->request->post('costo_c3', 390),
+            'R04' => (float)$this->request->post('costo_c4', 480),
+        ];
+        $probLluvia = (float)$this->request->post('prob_lluvia', 0.10);
+        $factorEstacion = (float)$this->request->post('factor_estacion', 1.00);
+        $factorCondicion = (float)$this->request->post('factor_condicion', 1.00);
+        $eInvReal = (float)$this->request->post('e_inv_real', 0.58);
+        $horaSalida = $this->request->post('hora_salida', '20:00');
+        $bloqueoR1 = (int)$this->request->post('bloqueo_r1', 0);
+        $bloqueoR2 = (int)$this->request->post('bloqueo_r2', 0);
+        $bloqueoR3 = (int)$this->request->post('bloqueo_r3', 0);
+        $bloqueoR4 = (int)$this->request->post('bloqueo_r4', 0);
+
+        if ($precioSC <= 0 || $precioCB <= 0 || $cabezas <= 0) {
+            Session::flash('error', 'Valores deben ser positivos.'); Response::redirect('/simulacion');
+        }
+        if ($probLluvia < 0 || $probLluvia > 1) {
+            Session::flash('error', 'Probabilidad entre 0 y 1.'); Response::redirect('/simulacion');
+        }
+
+        $eInvEfectiva = $eInvReal * $factorEstacion * $factorCondicion;
+        $Mi = [
+            'R01' => ($precioSC * $eInvEfectiva) - $costos['R01'],
+            'R02' => ($precioCB * $eInvEfectiva) - $costos['R02'],
+            'R03' => ($precioSC * $eInvEfectiva) - $costos['R03'],
+            'R04' => ($precioCB * $eInvEfectiva) - $costos['R04'],
+        ];
+        $tiempos = ['R01' => 6.5, 'R02' => 9.0, 'R03' => 11.0, 'R04' => 10.0];
+        $bloqueos = [];
+        if ($bloqueoR1) $bloqueos['R01'] = true;
+        if ($bloqueoR2) $bloqueos['R02'] = true;
+        if ($bloqueoR3) $bloqueos['R03'] = true;
+        if ($bloqueoR4) $bloqueos['R04'] = true;
+
+        $resultado = $this->simplexSolver->resolver([
+            'total_cabezas' => $cabezas, 'Mi' => $Mi, 'bloqueos' => $bloqueos,
+            'tiempos' => $tiempos, 'hora_salida' => $horaSalida, 'prob_lluvia' => $probLluvia
+        ]);
+
+        $this->view('simulacion/resultado', [
+            'resultado' => $resultado,
+            'datos' => compact('cabezas', 'precioSC', 'precioCB', 'costos', 'probLluvia',
+                'factorEstacion', 'factorCondicion', 'eInvReal', 'eInvEfectiva', 'horaSalida', 'bloqueos'),
+            'Mi' => $Mi
+        ]);
+    }
+
+    public function show(string $codigo): void
+    {
+        $db = Database::getInstance();
+        $escenario = $db->query("SELECT * FROM escenarios_simulacion WHERE codigo = ?", [strtoupper($codigo)])->fetch();
+        if (!$escenario) { Session::flash('error', 'Escenario no encontrado.'); Response::redirect('/simulacion'); }
+
+        $d = json_decode($escenario['datos_json'], true);
+        $cabezas = 60;
+        $precioSC = $d['precio_sc'] ?? 32;
+        $precioCB = $d['precio_cb'] ?? 34;
+        $costos = ['R01' => $d['costo_c1']??420, 'R02' => $d['costo_c2']??510, 'R03' => $d['costo_c3']??390, 'R04' => $d['costo_c4']??480];
+        $probLluvia = $d['prob_lluvia'] ?? 0.10;
+        $factoresEst = [1=>1.00, 2=>0.70, 3=>0.85];
+        $factoresCond = [1=>1.00, 2=>0.90, 3=>0.75];
+        $factorEstacion = $factoresEst[$d['estacion_id']] ?? 1.00;
+        $factorCondicion = $factoresCond[$d['condicion_id']] ?? 1.00;
+        $bloqueos = [];
+        if (!empty($d['bloqueo_r1'])) $bloqueos['R01'] = true;
+        if (!empty($d['bloqueo_r2'])) $bloqueos['R02'] = true;
+        if (!empty($d['bloqueo_r3'])) $bloqueos['R03'] = true;
+        if (!empty($d['bloqueo_r4'])) $bloqueos['R04'] = true;
+
+        $eInvEfectiva = 0.58 * $factorEstacion * $factorCondicion;
+        $Mi = [
+            'R01' => ($precioSC * $eInvEfectiva) - $costos['R01'],
+            'R02' => ($precioCB * $eInvEfectiva) - $costos['R02'],
+            'R03' => ($precioSC * $eInvEfectiva) - $costos['R03'],
+            'R04' => ($precioCB * $eInvEfectiva) - $costos['R04'],
+        ];
+        $tiempos = ['R01'=>6.5, 'R02'=>9.0, 'R03'=>11.0, 'R04'=>10.0];
+
+        $resultado = $this->simplexSolver->resolver([
+            'total_cabezas'=>$cabezas, 'Mi'=>$Mi, 'bloqueos'=>$bloqueos,
+            'tiempos'=>$tiempos, 'hora_salida'=>'20:00', 'prob_lluvia'=>$probLluvia
+        ]);
+
+        $this->view('simulacion/resultado', [
+            'resultado'=>$resultado, 'Mi'=>$Mi, 'escenario'=>$escenario,
+            'datos'=>compact('cabezas','precioSC','precioCB','costos','probLluvia',
+                'factorEstacion','factorCondicion','eInvEfectiva','bloqueos','escenario')
+        ]);
+    }
+}
+
+3.10 REPORTECONTROLLER (app/Controllers/ReporteController.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Controllers;
+
+use App\Core\Controller;
+use App\Core\Database;
+use App\Core\Response;
+use App\Core\Session;
+use App\Services\ReporteService;
+
+class ReporteController extends Controller
+{
+    private ReporteService $reporteService;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->reporteService = new ReporteService();
+    }
+
+    public function index(): void
+    {
+        $db = Database::getInstance();
+        $this->view('reportes/index', [
+            'reportes' => $db->query(
+                "SELECT r.*, l.cabezas, l.fecha_registro FROM reportes r JOIN lotes_ganado l ON r.lote_id = l.id ORDER BY r.id DESC"
+            )->fetchAll()
+        ]);
+    }
+
+    public function generar(): void
+    {
+        $this->verifyCsrfOrFail();
+        $db = Database::getInstance();
+        $resultado = Session::get('resultado_simplex');
+        if (!$resultado) {
+            Session::flash('error', 'Calcule el Simplex primero.');
+            Response::redirect('/simplex');
+        }
+
+        $lote = $db->query(
+            "SELECT l.*, c.nombre AS condicion, e.nombre AS estacion
+             FROM lotes_ganado l JOIN condiciones_ganado c ON l.condicion_id = c.id
+             JOIN estaciones e ON l.estacion_id = e.id
+             WHERE l.activo = 1 ORDER BY l.id DESC LIMIT 1"
+        )->fetch();
+
+        $precios = $db->query("SELECT p.*, m.nombre AS mercado FROM precios p JOIN mercados m ON p.mercado_id = m.id WHERE p.activo = 1")->fetchAll();
+        $clima = $db->query("SELECT * FROM clima WHERE activo = 1 ORDER BY id DESC LIMIT 1")->fetch();
+        $bloqueos = $db->query("SELECT b.*, r.codigo, r.nombre AS ruta_nombre FROM bloqueos b JOIN rutas r ON b.ruta_id = r.id WHERE b.activo = 1")->fetchAll();
+
+        try {
+            $pdfPath = $this->reporteService->generarPDF(compact('lote','precios','clima','bloqueos','resultado') + ['fecha_generacion' => date('Y-m-d H:i:s')]);
+            $db->execute("INSERT INTO reportes (lote_id, fecha_generacion, pdf_path, resultado_json) VALUES (?, NOW(), ?, ?)",
+                [$lote['id'], $pdfPath, json_encode($resultado, JSON_UNESCAPED_UNICODE)]);
+            $id = $db->lastInsertId();
+            Session::flash('success', 'Reporte PDF generado.');
+            Response::redirect("/reportes/{$id}/ver");
+        } catch (\Exception $e) {
+            error_log('PDF Error: ' . $e->getMessage());
+            Session::flash('error', 'Error al generar PDF: ' . $e->getMessage());
+            Response::redirect('/reportes');
+        }
+    }
+
+    public function show(int $id): void
+    {
+        $db = Database::getInstance();
+        $reporte = $db->query(
+            "SELECT r.*, l.cabezas, l.fecha_registro FROM reportes r JOIN lotes_ganado l ON r.lote_id = l.id WHERE r.id = ?", [$id]
+        )->fetch();
+        if (!$reporte) { Session::flash('error', 'Reporte no encontrado.'); Response::redirect('/reportes'); }
+        $this->view('reportes/show', ['reporte' => $reporte, 'resultado' => json_decode($reporte['resultado_json'], true)]);
+    }
+
+    public function descargar(int $id): void
+    {
+        $db = Database::getInstance();
+        $reporte = $db->query("SELECT * FROM reportes WHERE id = ?", [$id])->fetch();
+        if (!$reporte || !file_exists($reporte['pdf_path'])) {
+            Session::flash('error', 'PDF no disponible.'); Response::redirect('/reportes');
+        }
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="reporte_semanal_' . date('Ymd', strtotime($reporte['fecha_generacion'])) . '.pdf"');
+        header('Content-Length: ' . filesize($reporte['pdf_path']));
+        readfile($reporte['pdf_path']);
+        exit;
+    }
+}
+
+
+================================================================================
+FASE 4: MODELOS (Active Record con prepared statements)
+================================================================================
+
+Cada modelo extiende \App\Core\Model y define su tabla y metodos especificos.
+Todos usan prepared statements via PDO.
+
+4.1 LOTE (app/Models/Lote.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Models;
+
+use App\Core\Model;
+use App\Core\Database;
+
+class Lote extends Model
+{
+    protected static string $table = 'lotes_ganado';
+    protected static string $primaryKey = 'id';
+
+    public static function getWithDetails(): array
+    {
+        return Database::getInstance()->query(
+            "SELECT l.*, c.nombre AS condicion, e.nombre AS estacion
+             FROM lotes_ganado l
+             JOIN condiciones_ganado c ON l.condicion_id = c.id
+             JOIN estaciones e ON l.estacion_id = e.id
+             WHERE l.activo = 1 ORDER BY l.id DESC"
+        )->fetchAll();
+    }
+
+    public static function getUltimoActivo(): ?array
+    {
+        return Database::getInstance()->query(
+            "SELECT l.*, c.nombre AS condicion, c.factor AS factor_condicion,
+                    e.nombre AS estacion, e.factor AS factor_estacion
+             FROM lotes_ganado l
+             JOIN condiciones_ganado c ON l.condicion_id = c.id
+             JOIN estaciones e ON l.estacion_id = e.id
+             WHERE l.activo = 1 ORDER BY l.id DESC LIMIT 1"
+        )->fetch() ?: null;
+    }
+}
+
+4.2 PRECIO (app/Models/Precio.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Models;
+
+use App\Core\Model;
+use App\Core\Database;
+
+class Precio extends Model
+{
+    protected static string $table = 'precios';
+    protected static string $primaryKey = 'id';
+
+    public static function getActivos(): array
+    {
+        return Database::getInstance()->query(
+            "SELECT p.*, m.nombre AS mercado, m.ciudad
+             FROM precios p JOIN mercados m ON p.mercado_id = m.id
+             WHERE p.activo = 1 ORDER BY m.id"
+        )->fetchAll();
+    }
+}
+
+4.3 CLIMA (app/Models/Clima.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Models;
+
+use App\Core\Model;
+use App\Core\Database;
+
+class Clima extends Model
+{
+    protected static string $table = 'clima';
+    protected static string $primaryKey = 'id';
+
+    public static function getActivo(): ?array
+    {
+        return Database::getInstance()->query(
+            "SELECT * FROM clima WHERE activo = 1 ORDER BY id DESC LIMIT 1"
+        )->fetch() ?: null;
+    }
+
+    public static function hayAlertaAbapo(): bool
+    {
+        $clima = self::getActivo();
+        return $clima && (float)$clima['probabilidad_lluvia'] >= 0.40;
+    }
+}
+
+4.4 BLOQUEO (app/Models/Bloqueo.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Models;
+
+use App\Core\Model;
+use App\Core\Database;
+
+class Bloqueo extends Model
+{
+    protected static string $table = 'bloqueos';
+    protected static string $primaryKey = 'id';
+
+    public static function getActivos(): array
+    {
+        return Database::getInstance()->query(
+            "SELECT b.*, r.codigo, r.nombre AS ruta, r.destino
+             FROM bloqueos b JOIN rutas r ON b.ruta_id = r.id
+             WHERE b.activo = 1 ORDER BY b.id DESC"
+        )->fetchAll();
+    }
+
+    public static function estaBloqueado(string $codigoRuta): bool
+    {
+        return (bool)Database::getInstance()->query(
+            "SELECT COUNT(*) as total FROM bloqueos b
+             JOIN rutas r ON b.ruta_id = r.id
+             WHERE r.codigo = ? AND b.activo = 1",
+            [$codigoRuta]
+        )->fetch()['total'];
+    }
+}
+
+4.5 RUTA (app/Models/Ruta.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Models;
+
+use App\Core\Model;
+use App\Core\Database;
+
+class Ruta extends Model
+{
+    protected static string $table = 'rutas';
+    protected static string $primaryKey = 'id';
+
+    public static function getActivas(): array
+    {
+        return Database::getInstance()->query(
+            "SELECT r.*, m.nombre AS mercado_nombre
+             FROM rutas r JOIN mercados m ON r.mercado_id = m.id
+             WHERE r.activo = 1 ORDER BY r.id"
+        )->fetchAll();
+    }
+}
+
+4.6 MERCADO (app/Models/Mercado.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Models;
+
+use App\Core\Model;
+use App\Core\Database;
+
+class Mercado extends Model
+{
+    protected static string $table = 'mercados';
+    protected static string $primaryKey = 'id';
+}
+
+4.7 COSTOFLETE (app/Models/CostoFlete.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Models;
+
+use App\Core\Model;
+use App\Core\Database;
+
+class CostoFlete extends Model
+{
+    protected static string $table = 'costos_flete';
+    protected static string $primaryKey = 'id';
+
+    public static function getActivos(): array
+    {
+        return Database::getInstance()->query(
+            "SELECT cf.*, r.codigo, r.nombre AS ruta
+             FROM costos_flete cf JOIN rutas r ON cf.ruta_id = r.id
+             WHERE cf.activo = 1 ORDER BY cf.id DESC"
+        )->fetchAll();
+    }
+}
+
+4.8 CONDICIONGANADO (app/Models/CondicionGanado.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Models;
+
+use App\Core\Model;
+
+class CondicionGanado extends Model
+{
+    protected static string $table = 'condiciones_ganado';
+    protected static string $primaryKey = 'id';
+}
+
+4.9 ESTACION (app/Models/Estacion.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Models;
+
+use App\Core\Model;
+
+class Estacion extends Model
+{
+    protected static string $table = 'estaciones';
+    protected static string $primaryKey = 'id';
+}
+
+4.10 USUARIO (app/Models/Usuario.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Models;
+
+use App\Core\Model;
+
+class Usuario extends Model
+{
+    protected static string $table = 'usuarios';
+    protected static string $primaryKey = 'id';
+}
+
+================================================================================
+FASE 5: SERVICIOS
+================================================================================
+
+5.1 SIMPLEXSOLVER (app/Services/SimplexSolver.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Services;
+
+class SimplexSolver
+{
+    private array $rutas = ['R01', 'R02', 'R03', 'R04'];
+    private array $tiemposBase = ['R01' => 6.5, 'R02' => 9.0, 'R03' => 11.0, 'R04' => 10.0];
+    private const UMBRAL_LLUVIA = 0.40;
+    private const HORA_LIMITE = '08:00';
+
+    /**
+     * Metodo principal de resolucion del modelo Simplex.
+     * Aplica todos los filtros (bloqueos, clima, horario) y asigna
+     * todas las cabezas a la ruta con mayor margen neto (Mi) disponible.
+     *
+     * @param array $params {
+     *   total_cabezas: int,
+     *   Mi: array<string, float>  // M1..M4 por codigo de ruta
+     *   bloqueos: array<string, bool>,
+     *   tiempos: array<string, float>,
+     *   hora_salida: string (H:i:s o H:i),
+     *   prob_lluvia: float (0..1)
+     * }
+     * @return array Resultado con asignacion, Z, factibilidad, detalle
+     */
+    public function resolver(array $params): array
+    {
+        $totalCabezas = (int)$params['total_cabezas'];
+        $Mi = $params['Mi'];
+        $bloqueos = $params['bloqueos'] ?? [];
+        $tiempos = $params['tiempos'] ?? $this->tiemposBase;
+        $horaSalida = $params['hora_salida'] ?? '20:00';
+        $probLluvia = (float)($params['prob_lluvia'] ?? 0);
+
+        $resultado = [
+            'factible' => true,
+            'Z' => 0,
+            'asignacion' => [],
+            'ruta_elegida' => null,
+            'detalle_rutas' => [],
+            'mensaje' => '',
+            'filtros_aplicados' => []
+        ];
+
+        // PASO 1: Evaluar restricciones para cada ruta
+        $rutasDisponibles = [];
+
+        foreach ($this->rutas as $codigo) {
+            $filtros = [
+                'bloqueo' => false,
+                'clima' => false,
+                'horario' => false
+            ];
+            $descartada = false;
+            $motivo = '';
+
+            // Filtro de bloqueo vial: alpha, beta, gamma, delta
+            if (isset($bloqueos[$codigo]) && $bloqueos[$codigo]) {
+                $filtros['bloqueo'] = true;
+                $descartada = true;
+                $motivo .= 'Ruta bloqueada. ';
+            }
+
+            // Filtro climatico: solo para R03 (Ipati-Abapo)
+            if ($codigo === 'R03' && $probLluvia >= self::UMBRAL_LLUVIA) {
+                $filtros['clima'] = true;
+                $descartada = true;
+                $motivo .= 'Clima adverso (prob_lluvia=' . $probLluvia . '). ';
+            }
+
+            // Filtro horario: hora_salida + tiempo_viaje <= 08:00
+            $tiempoRuta = $tiempos[$codigo] ?? $this->tiemposBase[$codigo];
+            $horaLlegada = $this->calcularHoraLlegada($horaSalida, $tiempoRuta);
+            if ($horaLlegada > self::HORA_LIMITE) {
+                $filtros['horario'] = true;
+                $descartada = true;
+                $motivo .= "Llegada {$horaLlegada} excede limite 08:00. ";
+            }
+
+            $resultado['detalle_rutas'][$codigo] = [
+                'Mi' => $Mi[$codigo] ?? 0,
+                'disponible' => !$descartada,
+                'motivo_descarte' => $descartada ? trim($motivo) : '',
+                'filtros' => $filtros,
+                'hora_llegada' => $horaLlegada,
+                'tiempo_viaje' => $tiempoRuta,
+                'cabezas_asignadas' => 0
+            ];
+
+            if (!$descartada) {
+                $rutasDisponibles[$codigo] = $Mi[$codigo] ?? PHP_FLOAT_MIN;
+            }
+        }
+
+        $resultado['filtros_aplicados'] = [
+            'bloqueos_activos' => $bloqueos,
+            'prob_lluvia' => $probLluvia,
+            'umbral_clima' => self::UMBRAL_LLUVIA,
+            'hora_salida' => $horaSalida,
+            'hora_limite' => self::HORA_LIMITE
+        ];
+
+        // PASO 2: Verificar factibilidad
+        if (empty($rutasDisponibles)) {
+            $resultado['factible'] = false;
+            $resultado['mensaje'] = 'NO FACTIBLE: Ninguna ruta disponible. Revise bloqueos, clima y horario.';
+            return $resultado;
+        }
+
+        // PASO 3: Asignar TODAS las cabezas a la ruta con mayor Mi
+        arsort($rutasDisponibles);
+        $rutaElegida = array_key_first($rutasDisponibles);
+        $mejorMi = $rutasDisponibles[$rutaElegida];
+
+        $resultado['ruta_elegida'] = $rutaElegida;
+        $resultado['asignacion'][$rutaElegida] = $totalCabezas;
+        $resultado['detalle_rutas'][$rutaElegida]['cabezas_asignadas'] = $totalCabezas;
+        $resultado['Z'] = $mejorMi * $totalCabezas;
+
+        $nombresRutas = [
+            'R01' => 'Santa Cruz via Samaipata',
+            'R02' => 'Cochabamba via Comarapa',
+            'R03' => 'Santa Cruz via Ipati-Abapo',
+            'R04' => 'Cochabamba via Aiquile'
+        ];
+
+        $resultado['mensaje'] = sprintf(
+            'ASIGNACION OPTIMA: Enviar %d cabezas a %s (Margen neto: Bs %s por cabeza, Z total: Bs %s).',
+            $totalCabezas,
+            $nombresRutas[$rutaElegida] ?? $rutaElegida,
+            number_format($mejorMi, 2, ',', '.'),
+            number_format($resultado['Z'], 2, ',', '.')
+        );
+
+        $resultado['detalle'] = [
+            'total_cabezas' => $totalCabezas,
+            'ruta_elegida_nombre' => $nombresRutas[$rutaElegida] ?? $rutaElegida,
+            'margen_unitario' => $mejorMi,
+            'z_total' => $resultado['Z'],
+            'metodo' => 'Asignacion total a la ruta con mayor Mi entre las disponibles'
+        ];
+
+        return $resultado;
+    }
+
+    /**
+     * Calcula la hora de llegada sumando horas a la hora de salida
+     */
+    private function calcularHoraLlegada(string $horaSalida, float $horasViaje): string
+    {
+        $parts = explode(':', $horaSalida);
+        $h = (int)($parts[0] ?? 20);
+        $m = (int)($parts[1] ?? 0);
+        $totalMinutos = $h * 60 + $m + (int)($horasViaje * 60);
+        $totalMinutos = $totalMinutos % (24 * 60); // Ciclo de 24h
+        return sprintf('%02d:%02d', intdiv($totalMinutos, 60), $totalMinutos % 60);
+    }
+
+    /**
+     * Comparar dos horas en formato HH:MM
+     */
+    private function compararHoras(string $h1, string $h2): int
+    {
+        $t1 = strtotime($h1);
+        $t2 = strtotime($h2);
+        if ($t1 === false || $t2 === false) return 0;
+        // Si la llegada es al dia siguiente (h1 < h2 cuando h1 deberia ser mayor)
+        // Ajustar: si la diferencia es negativa, sumar 24h
+        $diff = $t1 - $t2;
+        if ($diff < 0 && $h1 < $h2) $diff += 86400; // 24h en segundos
+        return $diff <=> 0;
+    }
+}
+
+5.2 CLIMASERVICE (app/Services/ClimaService.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Services;
+
+use App\Core\Database;
+
+class ClimaService
+{
+    private const UMBRAL_LLUVIA_ABAPO = 0.40;
+
+    /**
+     * Obtener el registro climatico activo
+     */
+    public function getClimaActivo(): ?array
+    {
+        return Database::getInstance()->query(
+            "SELECT * FROM clima WHERE activo = 1 ORDER BY id DESC LIMIT 1"
+        )->fetch() ?: null;
+    }
+
+    /**
+     * Evaluar si la ruta Ipati-Abapo (R03) esta disponible segun el clima
+     */
+    public function rutaIpatiDisponible(): bool
+    {
+        $clima = $this->getClimaActivo();
+        if (!$clima) return true; // Sin datos climaticos, se asume disponible
+        return (float)$clima['probabilidad_lluvia'] < self::UMBRAL_LLUVIA_ABAPO;
+    }
+
+    /**
+     * Obtener probabilidad de lluvia actual
+     */
+    public function getProbabilidadLluvia(): float
+    {
+        $clima = $this->getClimaActivo();
+        return $clima ? (float)$clima['probabilidad_lluvia'] : 0.0;
+    }
+
+    /**
+     * Obtener alerta si corresponde
+     */
+    public function getAlerta(): ?string
+    {
+        $clima = $this->getClimaActivo();
+        if (!$clima) return null;
+        $prob = (float)$clima['probabilidad_lluvia'];
+        if ($prob >= self::UMBRAL_LLUVIA_ABAPO) {
+            return 'ALERTA CLIMATICA: Probabilidad de lluvia en Abapo del '
+                 . ($prob * 100) . '%. La ruta Ipati-Abapo (R03) esta bloqueada.';
+        }
+        if ($prob >= 0.25) {
+            return 'PRECAUCION: Probabilidad de lluvia en Abapo del '
+                 . ($prob * 100) . '%. Monitoree condiciones.';
+        }
+        return null;
+    }
+}
+
+5.3 ESTACIONALIDADSERVICE (app/Services/EstacionalidadService.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Services;
+
+use App\Core\Database;
+
+class EstacionalidadService
+{
+    private array $factoresEstacion = [];
+    private array $factoresCondicion = [];
+
+    /**
+     * Obtener factor de ajuste por estacion
+     */
+    public function getFactorEstacion(int $estacionId): float
+    {
+        if (empty($this->factoresEstacion)) {
+            $this->cargarFactores();
+        }
+        return $this->factoresEstacion[$estacionId] ?? 1.00;
+    }
+
+    /**
+     * Obtener factor de ajuste por condicion del ganado
+     */
+    public function getFactorCondicion(int $condicionId): float
+    {
+        if (empty($this->factoresCondicion)) {
+            $this->cargarFactores();
+        }
+        return $this->factoresCondicion[$condicionId] ?? 1.00;
+    }
+
+    /**
+     * Calcular eficiencia de inversion efectiva
+     */
+    public function calcularEInvEfectiva(
+        float $eInvReal,
+        int $estacionId,
+        int $condicionId
+    ): float {
+        return $eInvReal
+            * $this->getFactorEstacion($estacionId)
+            * $this->getFactorCondicion($condicionId);
+    }
+
+    /**
+     * Cargar factores desde la base de datos
+     */
+    private function cargarFactores(): void
+    {
+        $db = Database::getInstance();
+
+        $estaciones = $db->query("SELECT id, factor FROM estaciones")->fetchAll();
+        foreach ($estaciones as $e) {
+            $this->factoresEstacion[(int)$e['id']] = (float)$e['factor'];
+        }
+
+        $condiciones = $db->query("SELECT id, factor FROM condiciones_ganado")->fetchAll();
+        foreach ($condiciones as $c) {
+            $this->factoresCondicion[(int)$c['id']] = (float)$c['factor'];
+        }
+    }
+
+    /**
+     * Obtener el nombre de la estacion actual basada en el mes
+     */
+    public function getEstacionActual(): string
+    {
+        $mes = (int)date('n');
+        // Seca: mayo-agosto (5-8)
+        // Lluviosa: diciembre-marzo (12, 1-3)
+        // Transicion: abril, septiembre-noviembre (4, 9-11)
+        if ($mes >= 5 && $mes <= 8) return 'Seca';
+        if ($mes >= 12 || $mes <= 3) return 'Lluviosa';
+        return 'Transicion';
+    }
+
+    /**
+     * Obtener descripcion de la temporada
+     */
+    public function getDescripcionTemporada(): string
+    {
+        $estacion = $this->getEstacionActual();
+        $descripciones = [
+            'Seca' => 'Temporada seca (mayo-agosto). Mayor rendimiento en pastoreo, precios mas altos.',
+            'Lluviosa' => 'Temporada lluviosa (diciembre-marzo). Riesgo de alabaza en Abapo, menor rendimiento.',
+            'Transicion' => 'Temporada de transicion. Condiciones variables.'
+        ];
+        return $descripciones[$estacion] ?? '';
+    }
+}
+
+5.4 REPORTESERVICE (app/Services/ReporteService.php)
+--------------------------------------------------------------------------------
+
+<?php
+namespace App\Services;
+
+use Dompdf\Dompdf;
+use Dompdf\Options;
+
+class ReporteService
+{
+    private string $storagePath;
+
+    public function __construct()
+    {
+        $this->storagePath = __DIR__ . '/../../storage/reportes/';
+        if (!is_dir($this->storagePath)) {
+            mkdir($this->storagePath, 0755, true);
+        }
+    }
+
+    /**
+     * Generar PDF del reporte semanal de decision
+     *
+     * @param array $data Datos para el reporte (lote, precios, clima, bloqueos, resultado)
+     * @return string Ruta del archivo PDF generado
+     */
+    public function generarPDF(array $data): string
+    {
+        $options = new Options();
+        $options->set('defaultFont', 'DejaVu Sans');
+        $options->set('isRemoteEnabled', true);
+        $options->set('isHtml5ParserEnabled', true);
+
+        $dompdf = new Dompdf($options);
+
+        $html = $this->generarHTMLReporte($data);
+
+        $dompdf->loadHtml($html, 'UTF-8');
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        $filename = 'reporte_semanal_' . date('Ymd_His') . '.pdf';
+        $filepath = $this->storagePath . $filename;
+
+        file_put_contents($filepath, $dompdf->output());
+
+        return $filepath;
+    }
+
+    /**
+     * Generar el HTML del reporte
+     */
+    private function generarHTMLReporte(array $data): string
+    {
+        $lote = $data['lote'] ?? [];
+        $precios = $data['precios'] ?? [];
+        $clima = $data['clima'] ?? [];
+        $bloqueos = $data['bloqueos'] ?? [];
+        $resultado = $data['resultado'] ?? [];
+        $fechaGeneracion = $data['fecha_generacion'] ?? date('Y-m-d H:i:s');
+
+        $detalleRutas = $resultado['detalle_rutas'] ?? [];
+        $rutaElegida = $resultado['ruta_elegida'] ?? 'N/A';
+
+        $nombresRutas = [
+            'R01' => 'Santa Cruz via Samaipata',
+            'R02' => 'Cochabamba via Comarapa',
+            'R03' => 'Santa Cruz via Ipati-Abapo',
+            'R04' => 'Cochabamba via Aiquile'
+        ];
+
+        $html = '
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+    @page { margin: 2cm; }
+    body { font-family: "DejaVu Sans", sans-serif; font-size: 11pt; color: #333; }
+    .header { text-align: center; border-bottom: 3px solid #2E7D32; padding-bottom: 10px; margin-bottom: 20px; }
+    .header h1 { color: #2E7D32; font-size: 18pt; margin: 0; }
+    .header h2 { color: #4E2A04; font-size: 13pt; margin: 5px 0; }
+    .header p { color: #666; font-size: 9pt; margin: 2px 0; }
+    .section { margin: 15px 0; }
+    .section h3 { background: #2E7D32; color: white; padding: 6px 10px; font-size: 11pt; border-radius: 4px; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 10pt; }
+    th { background: #4a7c2e; color: white; padding: 6px; text-align: left; }
+    td { padding: 5px 6px; border-bottom: 1px solid #ddd; }
+    tr:nth-child(even) { background: #f9f9f9; }
+    .result-box { background: #e8f5e9; border: 2px solid #2E7D32; padding: 12px; border-radius: 6px; margin: 10px 0; }
+    .result-box .label { font-weight: bold; color: #2E7D32; }
+    .result-box .value { font-size: 14pt; color: #4E2A04; font-weight: bold; }
+    .alerta { background: #fff3e0; border: 1px solid #F9A825; padding: 8px; border-radius: 4px; margin: 5px 0; }
+    .no-factible { background: #ffebee; border: 2px solid #c62828; padding: 12px; border-radius: 6px; text-align: center; }
+    .no-factible h3 { color: #c62828; margin: 0; }
+    .footer { text-align: center; font-size: 8pt; color: #999; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 8px; }
+</style>
+</head>
+<body>
+<div class="header">
+    <h1>SISTEMA DE SOPORTE A LA DECISION (DSS)</h1>
+    <h2>AGAPROVA - Asociacion de Ganaderos de Vallegrande</h2>
+    <p>Reporte Semanal de Optimizacion Logistica</p>
+    <p>Generado: ' . $fechaGeneracion . '</p>
+</div>';
+
+        // Datos del lote
+        $html .= '<div class="section"><h3>1. DATOS DEL LOTE</h3>';
+        $html .= '<table>';
+        $html .= '<tr><th>Parametro</th><th>Valor</th></tr>';
+        $html .= '<tr><td>Cabezas</td><td>' . ($lote['cabezas'] ?? 'N/A') . '</td></tr>';
+        $html .= '<tr><td>Peso promedio (kg)</td><td>' . ($lote['peso_promedio_kg'] ?? 'N/A') . '</td></tr>';
+        $html .= '<tr><td>Condicion</td><td>' . ($lote['condicion'] ?? 'N/A') . '</td></tr>';
+        $html .= '<tr><td>Estacion</td><td>' . ($lote['estacion'] ?? 'N/A') . '</td></tr>';
+        $html .= '<tr><td>Hora salida</td><td>' . ($lote['hora_salida'] ?? '20:00') . '</td></tr>';
+        $html .= '<tr><td>Fecha registro</td><td>' . ($lote['fecha_registro'] ?? 'N/A') . '</td></tr>';
+        $html .= '</table></div>';
+
+        // Precios de mercado
+        $html .= '<div class="section"><h3>2. PRECIOS DE MERCADO</h3><table>';
+        $html .= '<tr><th>Mercado</th><th>Precio (Bs/kg)</th><th>Fecha</th></tr>';
+        foreach ($precios as $p) {
+            $html .= '<tr><td>' . ($p['mercado'] ?? '') . '</td><td>' . number_format((float)$p['precio_kg'], 2) . '</td><td>' . ($p['fecha_registro'] ?? '') . '</td></tr>';
+        }
+        $html .= '</table></div>';
+
+        // Clima
+        $html .= '<div class="section"><h3>3. CONDICION CLIMATICA</h3>';
+        if ($clima) {
+            $prob = (float)$clima['probabilidad_lluvia'] * 100;
+            $html .= '<p>Probabilidad de lluvia en Abapo: ' . number_format($prob, 0) . '%</p>';
+            if ($prob >= 40) {
+                $html .= '<div class="alerta"><strong>ALERTA:</strong> Ruta Ipati-Abapo (R03) BLOQUEADA por clima.</div>';
+            }
+        } else {
+            $html .= '<p>Sin datos climaticos registrados.</p>';
+        }
+        $html .= '</div>';
+
+        // Bloqueos
+        $html .= '<div class="section"><h3>4. ESTADO DE RUTAS</h3><table>';
+        $html .= '<tr><th>Ruta</th><th>Estado</th></tr>';
+        if (!empty($bloqueos)) {
+            foreach ($bloqueos as $b) {
+                $html .= '<tr><td>' . ($b['ruta_nombre'] ?? $b['codigo'] ?? '') . '</td><td>' . (($b['activo'] ?? 0) ? 'BLOQUEADA' : 'HABILITADA') . '</td></tr>';
+            }
+        } else {
+            $html .= '<tr><td colspan="2">Sin bloqueos activos</td></tr>';
+        }
+        $html .= '</table></div>';
+
+        // Resultado Simplex
+        $html .= '<div class="section"><h3>5. RESULTADO DE LA OPTIMIZACION</h3>';
+
+        if (!empty($resultado) && ($resultado['factible'] ?? false)) {
+            $html .= '<div class="result-box">';
+            $html .= '<p><span class="label">Ruta seleccionada:</span> <span class="value">' . ($nombresRutas[$rutaElegida] ?? $rutaElegida) . '</span></p>';
+            $html .= '<p><span class="label">Cabezas asignadas:</span> ' . ($resultado['detalle']['total_cabezas'] ?? 0) . '</p>';
+            $html .= '<p><span class="label">Margen neto unitario:</span> Bs ' . number_format(($resultado['detalle']['margen_unitario'] ?? 0), 2, ',', '.') . '</p>';
+            $html .= '<p><span class="label">Z (Margen total semanal):</span> Bs ' . number_format(($resultado['Z'] ?? 0), 2, ',', '.') . '</p>';
+            $html .= '</div>';
+
+            $html .= '<table><tr><th>Ruta</th><th>Margen Mi (Bs)</th><th>Disponible</th><th>Cabezas</th></tr>';
+            foreach ($detalleRutas as $cod => $det) {
+                $disponible = $det['disponible'] ? 'SI' : 'NO';
+                $html .= '<tr><td>' . ($nombresRutas[$cod] ?? $cod) . '</td>'
+                       . '<td>' . number_format($det['Mi'], 2, ',', '.') . '</td>'
+                       . '<td>' . $disponible . '</td>'
+                       . '<td>' . ($det['cabezas_asignadas'] ?? 0) . '</td></tr>';
+            }
+            $html .= '</table>';
+
+            if (!empty($resultado['mensaje'])) {
+                $html .= '<p>' . $resultado['mensaje'] . '</p>';
+            }
+        } else {
+            $html .= '<div class="no-factible"><h3>NO FACTIBLE</h3>';
+            $html .= '<p>' . ($resultado['mensaje'] ?? 'Ninguna ruta disponible.') . '</p></div>';
+        }
+
+        $html .= '</div>';
+
+        // Filtros aplicados
+        $filtros = $resultado['filtros_aplicados'] ?? [];
+        if (!empty($filtros)) {
+            $html .= '<div class="section"><h3>6. FILTROS APLICADOS</h3><table>';
+            $html .= '<tr><th>Filtro</th><th>Valor</th></tr>';
+            $html .= '<tr><td>Hora salida</td><td>' . ($filtros['hora_salida'] ?? 'N/A') . '</td></tr>';
+            $html .= '<tr><td>Hora limite llegada</td><td>' . ($filtros['hora_limite'] ?? '08:00') . '</td></tr>';
+            $html .= '<tr><td>Probabilidad lluvia</td><td>' . number_format(($filtros['prob_lluvia'] ?? 0) * 100, 0) . '%</td></tr>';
+            $html .= '<tr><td>Umbral climatico</td><td>' . ($filtros['umbral_clima'] ?? 0.40) . '</td></tr>';
+            $html .= '</table></div>';
+        }
+
+        $html .= '<div class="footer">';
+        $html .= '<p>DSS AGAPROVA v1.0 - Documento generado automaticamente</p>';
+        $html .= '<p>Este reporte constituye un respaldo formal de la decision de asignacion semanal</p>';
+        $html .= '</div>';
+        $html .= '</body></html>';
+
+        return $html;
+    }
+}
+
+
+================================================================================
+FASE 6: VISTAS
+================================================================================
+
+6.1 LAYOUT HEADER (app/Views/layouts/header.php)
+--------------------------------------------------------------------------------
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>' . APP_NAME . ' - Panel de Control</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="' . asset('css/style.css') . '">
+</head>
+<body>
+<div class="wrapper">
+    <?php if (auth_check()): ?>
+    <header class="main-header">
+        <div class="header-left">
+            <a href="' . route('dashboard') . '" class="logo">
+                <i class="fas fa-cow"></i> <span>DSS AGAPROVA</span>
+            </a>
+        </div>
+        <nav class="header-nav">
+            <a href="' . route('dashboard') . '" class="nav-link"><i class="fas fa-th-large"></i> Dashboard</a>
+            <a href="' . route('lotes') . '" class="nav-link"><i class="fas fa-cow"></i> Lotes</a>
+            <a href="' . route('precios') . '" class="nav-link"><i class="fas fa-chart-line"></i> Precios</a>
+            <a href="' . route('clima') . '" class="nav-link"><i class="fas fa-cloud-rain"></i> Clima</a>
+            <a href="' . route('bloqueos') . '" class="nav-link"><i class="fas fa-road"></i> Bloqueos</a>
+            <a href="' . route('costos') . '" class="nav-link"><i class="fas fa-truck"></i> Costos</a>
+            <a href="' . route('simplex') . '" class="nav-link"><i class="fas fa-calculator"></i> Simplex</a>
+            <a href="' . route('simulacion') . '" class="nav-link"><i class="fas fa-flask"></i> Simular</a>
+            <a href="' . route('reportes') . '" class="nav-link"><i class="fas fa-file-pdf"></i> Reportes</a>
+        </nav>
+        <div class="header-right">
+            <span class="user-name"><i class="fas fa-user"></i> ' . e(auth_user()) . '</span>
+            <a href="' . route('logout') . '" class="btn-logout" onclick="return confirm(\"Cerrar sesion?\")">
+                <i class="fas fa-sign-out-alt"></i>
+            </a>
+        </div>
+    </header>
+    <?php endif; ?>
+    <main class="main-content">
+        <div class="container">
+
+6.2 LAYOUT FOOTER (app/Views/layouts/footer.php)
+--------------------------------------------------------------------------------
+
+        </div>
+    </main>
+    <footer class="main-footer">
+        <p>&copy; ' . date('Y') . ' ' . APP_NAME . ' - Asociacion de Ganaderos de la Provincia de Vallegrande</p>
+        <p>Sistema de Soporte a la Decision v1.0</p>
+    </footer>
+</div>
+<script src="' . asset('js/app.js') . '"></script>
+</body>
+</html>
+
+6.3 LOGIN (app/Views/auth/login.php)
+--------------------------------------------------------------------------------
+
+<div class="login-wrapper">
+    <div class="login-card">
+        <div class="login-header">
+            <i class="fas fa-cow fa-3x"></i>
+            <h1>DSS AGAPROVA</h1>
+            <p>Iniciar Sesion</p>
+        </div>
+        ' . flash_message() . '
+        <form action="' . route('login') . '" method="POST" class="login-form">
+            ' . csrf_field() . '
+            <div class="form-group">
+                <label for="username"><i class="fas fa-user"></i> Usuario</label>
+                <input type="text" id="username" name="username" class="form-control"
+                       placeholder="Ingrese su usuario" value="' . e(old('username')) . '" required>
+            </div>
+            <div class="form-group">
+                <label for="password"><i class="fas fa-lock"></i> Contrasena</label>
+                <input type="password" id="password" name="password" class="form-control"
+                       placeholder="Ingrese su contrasena" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">
+                <i class="fas fa-sign-in-alt"></i> Ingresar
+            </button>
+        </form>
+    </div>
+</div>
+
+6.4 DASHBOARD (app/Views/dashboard/index.php)
+--------------------------------------------------------------------------------
+
+' . flash_message() . '
+<div class="dashboard-header">
+    <h1><i class="fas fa-th-large"></i> Dashboard</h1>
+    <p>Bienvenido, ' . e($userName ?? 'Operador') . '</p>
+</div>
+
+<div class="cards-grid">
+    <!-- Tarjeta Ultimo Lote -->
+    <div class="card">
+        <div class="card-header card-header-lote">
+            <i class="fas fa-cow"></i> <h3>Ultimo Lote</h3>
+        </div>
+        <div class="card-body">
+            <?php if ($ultimoLote): ?>
+            <p><strong>Cabezas:</strong> ' . $ultimoLote['cabezas'] . '</p>
+            <p><strong>Peso:</strong> ' . $ultimoLote['peso_promedio_kg'] . ' kg</p>
+            <p><strong>Condicion:</strong> ' . $ultimoLote['condicion'] . '</p>
+            <p><strong>Estacion:</strong> ' . $ultimoLote['estacion'] . '</p>
+            <a href="' . route('lotes/' . $ultimoLote['id']) . '" class="btn btn-sm">Ver detalle</a>
+            <?php else: ?>
+            <p class="text-muted">No hay lotes registrados</p>
+            <a href="' . route('lotes/crear') . '" class="btn btn-sm"><i class="fas fa-plus"></i> Registrar lote</a>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <!-- Tarjeta Precios -->
+    <div class="card">
+        <div class="card-header card-header-precio">
+            <i class="fas fa-chart-line"></i> <h3>Precios</h3>
+        </div>
+        <div class="card-body">
+            <?php if ($precios): ?>
+            <?php foreach ($precios as $p): ?>
+            <p><strong>' . $p['nombre'] . ':</strong> Bs ' . number_format($p['precio_kg'], 2) . '</p>
+            <?php endforeach; ?>
+            <?php else: ?>
+            <p class="text-muted">Sin precios registrados</p>
+            <?php endif; ?>
+            <a href="' . route('precios/crear') . '" class="btn btn-sm"><i class="fas fa-plus"></i> Actualizar</a>
+        </div>
+    </div>
+
+    <!-- Tarjeta Clima -->
+    <div class="card">
+        <div class="card-header card-header-clima">
+            <i class="fas fa-cloud-rain"></i> <h3>Clima Abapo</h3>
+        </div>
+        <div class="card-body">
+            <?php if ($clima): ?>
+            <p><strong>Prob. lluvia:</strong> ' . number_format($clima['probabilidad_lluvia'] * 100, 0) . '%</p>
+            <p><strong>Fecha:</strong> ' . $clima['fecha_registro'] . '</p>
+            <?php if ((float)$clima['probabilidad_lluvia'] >= 0.40): ?>
+            <div class="alert alert-warning"><i class="fas fa-triangle-exclamation"></i> Ruta Ipati BLOQUEADA</div>
+            <?php endif; ?>
+            <?php else: ?>
+            <p class="text-muted">Sin datos climaticos</p>
+            <?php endif; ?>
+            <a href="' . route('clima/crear') . '" class="btn btn-sm"><i class="fas fa-plus"></i> Registrar</a>
+        </div>
+    </div>
+
+    <!-- Tarjeta Bloqueos -->
+    <div class="card">
+        <div class="card-header card-header-bloqueo">
+            <i class="fas fa-road"></i> <h3>Bloqueos</h3>
+        </div>
+        <div class="card-body">
+            <?php if ($bloqueos): ?>
+            <?php foreach ($bloqueos as $b): ?>
+            <p><i class="fas fa-exclamation-triangle" style="color:#F9A825;"></i> ' . $b['nombre'] . ' BLOQUEADA</p>
+            <?php endforeach; ?>
+            <?php else: ?>
+            <p class="text-muted">Sin bloqueos activos</p>
+            <?php endif; ?>
+            <a href="' . route('bloqueos') . '" class="btn btn-sm">Gestionar</a>
+        </div>
+    </div>
+</div>
+
+<!-- Acciones rapidas -->
+<div class="quick-actions">
+    <h3><i class="fas fa-bolt"></i> Acciones Rapidas</h3>
+    <div class="actions-grid">
+        <a href="' . route('lotes/crear') . '" class="action-btn" style="background:#2E7D32;">
+            <i class="fas fa-plus-circle"></i> Nuevo Lote
+        </a>
+        <a href="' . route('precios/crear') . '" class="action-btn" style="background:#4a7c2e;">
+            <i class="fas fa-dollar-sign"></i> Actualizar Precios
+        </a>
+        <a href="' . route('clima/crear') . '" class="action-btn" style="background:#F9A825;">
+            <i class="fas fa-cloud-sun"></i> Registrar Clima
+        </a>
+        <a href="' . route('simplex') . '" class="action-btn" style="background:#4E2A04;">
+            <i class="fas fa-calculator"></i> Calcular Simplex
+        </a>
+        <a href="' . route('simulacion') . '" class="action-btn" style="background:#2E7D32;">
+            <i class="fas fa-flask"></i> Simular Escenarios
+        </a>
+        <a href="' . route('reportes/generar') . '" class="action-btn" style="background:#4a7c2e;">
+            <i class="fas fa-file-pdf"></i> Generar Reporte
+        </a>
+    </div>
+</div>
+
+6.5 FORMULARIO DE LOTE (app/Views/lotes/create.php)
+--------------------------------------------------------------------------------
+
+<h1><i class="fas fa-cow"></i> Registrar Nuevo Lote</h1>
+' . flash_message() . '
+<form action="' . route('lotes/guardar') . '" method="POST" class="form-card">
+    ' . csrf_field() . '
+    <div class="form-row">
+        <div class="form-group">
+            <label for="cabezas">Numero de Cabezas *</label>
+            <input type="number" id="cabezas" name="cabezas" class="form-control" min="1" required
+                   value="' . e(old('cabezas')) . '">
+        </div>
+        <div class="form-group">
+            <label for="peso_promedio_kg">Peso Promedio (kg) *</label>
+            <input type="number" id="peso_promedio_kg" name="peso_promedio_kg" class="form-control"
+                   step="0.01" min="0.01" required value="' . e(old('peso_promedio_kg')) . '">
+        </div>
+    </div>
+    <div class="form-row">
+        <div class="form-group">
+            <label for="condicion_id">Condicion del Ganado *</label>
+            <select id="condicion_id" name="condicion_id" class="form-control" required>
+                <option value="">Seleccione...</option>
+                <?php foreach ($condiciones as $c): ?>
+                <option value="' . $c['id'] . '">' . $c['nombre'] . ' (factor ' . $c['factor'] . ')</option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="estacion_id">Estacion *</label>
+            <select id="estacion_id" name="estacion_id" class="form-control" required>
+                <option value="">Seleccione...</option>
+                <?php foreach ($estaciones as $e): ?>
+                <option value="' . $e['id'] . '">' . $e['nombre'] . ' (factor ' . $e['factor'] . ')</option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+    </div>
+    <div class="form-group">
+        <label for="hora_salida">Hora de Salida *</label>
+        <input type="time" id="hora_salida" name="hora_salida" class="form-control"
+               value="' . e(old('hora_salida', '20:00')) . '" required>
+        <small class="form-text">Hora programada de salida desde Vallegrande</small>
+    </div>
+    <div class="form-actions">
+        <a href="' . route('lotes') . '" class="btn btn-secondary"><i class="fas fa-times"></i> Cancelar</a>
+        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Guardar Lote</button>
+    </div>
+</form>
+
+6.6 ESTILOS CSS (assets/css/style.css) - Colores institucionales
+--------------------------------------------------------------------------------
+
+:root {
+    --verde-oscuro: #2E7D32;
+    --verde-claro: #4a7c2e;
+    --dorado: #F9A825;
+    --marron: #4E2A04;
+    --fondo: #f5f0e8;
+    --blanco: #ffffff;
+    --sombra: 0 4px 12px rgba(0,0,0,0.1);
+    --sombra-hover: 0 6px 20px rgba(0,0,0,0.15);
+    --radio: 8px;
+    --transition: all 0.3s ease;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Segoe UI', 'Roboto', sans-serif;
+    background: var(--fondo);
+    color: #333;
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+.wrapper { display: flex; flex-direction: column; min-height: 100vh; }
+
+/* HEADER */
+.main-header {
+    background: linear-gradient(135deg, var(--verde-oscuro), var(--verde-claro));
+    color: white;
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    flex-wrap: wrap;
+}
+
+.logo {
+    font-size: 1.4em;
+    font-weight: bold;
+    color: var(--dorado);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 0;
+}
+
+.header-nav {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.nav-link {
+    color: rgba(255,255,255,0.9);
+    text-decoration: none;
+    padding: 10px 12px;
+    border-radius: var(--radio);
+    font-size: 0.9em;
+    transition: var(--transition);
+    white-space: nowrap;
+}
+
+.nav-link:hover {
+    background: rgba(255,255,255,0.15);
+    color: white;
+    transform: translateY(-1px);
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.user-name {
+    font-size: 0.9em;
+    color: rgba(255,255,255,0.9);
+}
+
+.btn-logout {
+    color: white;
+    background: rgba(255,255,255,0.15);
+    border: none;
+    padding: 8px 14px;
+    border-radius: var(--radio);
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+.btn-logout:hover {
+    background: rgba(255,0,0,0.3);
+}
+
+/* MAIN CONTENT */
+.main-content {
+    flex: 1;
+    padding: 20px;
+}
+
+.container { max-width: 1200px; margin: 0 auto; }
+
+/* CARDS */
+.cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.card {
+    background: var(--blanco);
+    border-radius: 12px;
+    box-shadow: var(--sombra);
+    overflow: hidden;
+    transition: var(--transition);
+}
+
+.card:hover {
+    box-shadow: var(--sombra-hover);
+    transform: translateY(-3px);
+}
+
+.card-header {
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1em;
+    color: white;
+}
+
+.card-header-lote { background: var(--verde-oscuro); }
+.card-header-precio { background: var(--verde-claro); }
+.card-header-clima { background: var(--dorado); color: var(--marron); }
+.card-header-bloqueo { background: var(--marron); }
+.card-header h3 { margin: 0; font-size: 1em; }
+
+.card-body { padding: 16px 18px; }
+.card-body p { margin: 6px 0; font-size: 0.95em; }
+
+/* FORMS */
+.form-card {
+    background: var(--blanco);
+    padding: 24px;
+    border-radius: 12px;
+    box-shadow: var(--sombra);
+    max-width: 700px;
+    margin: 20px 0;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--marron);
+    font-size: 0.9em;
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px 14px;
+    border: 2px solid #ddd;
+    border-radius: var(--radio);
+    font-size: 1em;
+    transition: var(--transition);
+    background: #fafafa;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--verde-oscuro);
+    box-shadow: 0 0 0 3px rgba(46,125,50,0.15);
+    background: white;
+}
+
+.form-text {
+    font-size: 0.82em;
+    color: #888;
+    margin-top: 4px;
+    display: block;
+}
+
+/* BUTTONS */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: var(--radio);
+    font-size: 0.95em;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+.btn:hover {
+    transform: scale(1.02);
+    opacity: 0.92;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--verde-oscuro), var(--verde-claro));
+    color: white;
+}
+
+.btn-secondary {
+    background: #e0e0e0;
+    color: #333;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #c62828, #e53935);
+    color: white;
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, var(--dorado), #fbc02d);
+    color: var(--marron);
+}
+
+.btn-sm {
+    padding: 6px 14px;
+    font-size: 0.85em;
+}
+
+.btn-block {
+    width: 100%;
+    justify-content: center;
+}
+
+.form-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #eee;
+}
+
+/* TABLES */
+.table-container {
+    background: var(--blanco);
+    border-radius: 12px;
+    box-shadow: var(--sombra);
+    overflow-x: auto;
+    margin: 20px 0;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+table thead {
+    background: linear-gradient(135deg, var(--verde-oscuro), var(--verde-claro));
+    color: white;
+}
+
+table th {
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.9em;
+}
+
+table td {
+    padding: 10px 16px;
+    border-bottom: 1px solid #eee;
+    font-size: 0.9em;
+}
+
+table tbody tr:hover {
+    background: #f0f7f0;
+}
+
+/* ALERTS / FLASH MESSAGES */
+.alert {
+    padding: 12px 18px;
+    border-radius: var(--radio);
+    margin: 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.95em;
+}
+
+.alert-success {
+    background: #e8f5e9;
+    border: 1px solid #a5d6a7;
+    color: #2E7D32;
+}
+
+.alert-danger {
+    background: #ffebee;
+    border: 1px solid #ef9a9a;
+    color: #c62828;
+}
+
+.alert-warning {
+    background: #fff8e1;
+    border: 1px solid #ffe082;
+    color: #f57f17;
+}
+
+/* LOGIN PAGE */
+.login-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--verde-oscuro) 0%, var(--marron) 100%);
+    padding: 20px;
+}
+
+.login-card {
+    background: var(--blanco);
+    padding: 40px;
+    border-radius: 16px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    max-width: 420px;
+    width: 100%;
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.login-header i { color: var(--verde-oscuro); margin-bottom: 10px; }
+.login-header h1 { color: var(--verde-oscuro); margin: 10px 0; }
+.login-header p { color: var(--marron); font-size: 1em; }
+
+/* QUICK ACTIONS */
+.quick-actions {
+    margin: 30px 0;
+}
+.quick-actions h3 { color: var(--marron); margin-bottom: 15px; }
+
+.actions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+}
+
+.action-btn {
+    padding: 18px;
+    border-radius: 12px;
+    color: white;
+    text-decoration: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 0.95em;
+    transition: var(--transition);
+    box-shadow: var(--sombra);
+}
+
+.action-btn:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--sombra-hover);
+}
+
+.action-btn i { font-size: 1.6em; }
+
+/* FOOTER */
+.main-footer {
+    background: var(--marron);
+    color: rgba(255,255,255,0.8);
+    text-align: center;
+    padding: 16px;
+    font-size: 0.85em;
+}
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+    .main-header { flex-direction: column; padding: 10px; }
+    .header-nav { justify-content: center; margin: 5px 0; }
+    .header-right { margin: 5px 0; }
+    .form-row { grid-template-columns: 1fr; }
+    .cards-grid { grid-template-columns: 1fr; }
+    .actions-grid { grid-template-columns: 1fr 1fr; }
+    .login-card { padding: 24px; }
+}
+
+@media (max-width: 480px) {
+    .actions-grid { grid-template-columns: 1fr; }
+    .header-nav .nav-link { font-size: 0.8em; padding: 6px 8px; }
+}
+
+/* UTILITIES */
+.text-muted { color: #999; }
+.text-center { text-align: center; }
+.mt-20 { margin-top: 20px; }
+.mb-20 { margin-bottom: 20px; }
+================================================================================
+FASE 7: PRUEBAS BASICAS
+================================================================================
+
+7.1 PRUEBA DEL CASO BASE (60 cabezas, bloqueo x2)
+--------------------------------------------------------------------------------
+
+Escenario simulado:
+  Stock: G_totales = 60 cabezas
+  Precio Santa Cruz (P_SC): 32 Bs/kg
+  Precio Cochabamba (P_CB): 34 Bs/kg
+  E_inv_real: 0.58 kg gancho/cabeza
+  Estacion: Seca (factor = 1.00)
+  Condicion: Buena (factor = 1.00)
+  E_inv_efectiva = 0.58 * 1.00 * 1.00 = 0.58
+
+  Costos:
+    C1 (Samaipata) = 420 Bs/cabeza
+    C2 (Comarapa) = 510 Bs/cabeza
+    C3 (Ipati-Abapo) = 390 Bs/cabeza
+    C4 (Aiquile) = 480 Bs/cabeza
+
+  Bloqueos: x2 (Comarapa, R02) BLOQUEADA (beta = 0)
+  Clima: Sin alerta (prob_lluvia < 0.40)
+
+Calculo de margenes:
+  M1 = (32 * 0.58) - 420 = 18.56 - 420 = -401.44
+  M2 = (34 * 0.58) - 510 = 19.72 - 510 = -490.28 (bloqueada)
+  M3 = (32 * 0.58) - 390 = 18.56 - 390 = -371.44
+  M4 = (34 * 0.58) - 480 = 19.72 - 480 = -460.28
+
+Filtros:
+  R01 (Samaipata): Disponible (alpha=1, horario ok: 20:00+6.5h=02:30 <= 08:00)
+  R02 (Comarapa): BLOQUEADA (beta=0)
+  R03 (Ipati-Abapo): Disponible (gamma=1, clima ok, horario ok: 20:00+11h=07:00 <= 08:00)
+  R04 (Aiquile): Disponible (delta=1, horario ok: 20:00+10h=06:00 <= 08:00)
+
+Rutas disponibles: R01 (M1=-401.44), R03 (M3=-371.44), R04 (M4=-460.28)
+Mejor Mi: M3 = -371.44 (Ruta Ipati-Abapo, menos negativa)
+
+Asignacion: x3 = 60 cabezas
+Z = 60 * (-371.44) = -22,286.40 Bs
+
+Resultado esperado del algoritmo SimplexSolver:
+  factible: true
+  ruta_elegida: 'R03'
+  Z: -22286.40
+  asignacion: { 'R03': 60 }
+  mensaje debe indicar que R03 fue seleccionada con Z = -22,286.40 Bs.
+
+Codigo de prueba (PHPUnit o script independiente):
+
+<?php
+// test_caso_base.php - Prueba del caso base del modelo matematico
+require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/app/Services/SimplexSolver.php';
+
+use App\Services\SimplexSolver;
+
+$solver = new SimplexSolver();
+
+$resultado = $solver->resolver([
+    'total_cabezas' => 60,
+    'Mi' => [
+        'R01' => -401.44,
+        'R02' => -490.28,
+        'R03' => -371.44,
+        'R04' => -460.28,
+    ],
+    'bloqueos' => ['R02' => true],  // Solo R02 bloqueada
+    'tiempos' => ['R01' => 6.5, 'R02' => 9.0, 'R03' => 11.0, 'R04' => 10.0],
+    'hora_salida' => '20:00',
+    'prob_lluvia' => 0.10  // Sin alerta
+]);
+
+// Verificaciones
+$paso = 0;
+$total = 5;
+
+echo "=== PRUEBA CASO BASE ===\n";
+
+// 1. Factibilidad
+if ($resultado['factible'] === true) {
+    echo "[PASO " . ++$paso . "/$total] Factible: OK\n";
+} else {
+    echo "[FALLO " . ++$paso . "/$total] Se esperaba factible=true\n";
+}
+
+// 2. Ruta elegida
+if ($resultado['ruta_elegida'] === 'R03') {
+    echo "[PASO " . ++$paso . "/$total] Ruta elegida R03: OK\n";
+} else {
+    echo "[FALLO " . ++$paso . "/$total] Se esperaba R03, se obtuvo: " . $resultado['ruta_elegida'] . "\n";
+}
+
+// 3. Asignacion
+if (($resultado['asignacion']['R03'] ?? 0) === 60) {
+    echo "[PASO " . ++$paso . "/$total] Asignacion 60 cabezas a R03: OK\n";
+} else {
+    echo "[FALLO " . ++$paso . "/$total] Se esperaba 60 cabezas en R03\n";
+}
+
+// 4. Z total
+$zEsperada = -22286.40;
+$zObtenida = $resultado['Z'];
+if (abs($zObtenida - $zEsperada) < 0.01) {
+    echo "[PASO " . ++$paso . "/$total] Z = {$zObtenida} (esperado {$zEsperada}): OK\n";
+} else {
+    echo "[FALLO " . ++$paso . "/$total] Z esperado {$zEsperada}, obtenido {$zObtenida}\n";
+}
+
+// 5. Rutas no bloqueadas disponibles
+if (count($resultado['detalle_rutas']) === 4) {
+    echo "[PASO " . ++$paso . "/$total] 4 rutas evaluadas: OK\n";
+} else {
+    echo "[FALLO " . ++$paso . "/$total] Se esperaban 4 rutas evaluadas\n";
+}
+
+echo "\nResultado completo:\n";
+print_r($resultado);
+
+7.2 PRUEBA DE RESTRICCION HORARIA
+--------------------------------------------------------------------------------
+
+Escenario: Ruta con tiempo de viaje 12 horas y salida a las 22:00.
+  hora_salida: 22:00
+  tiempo_viaje: 12 horas
+  hora_llegada: 22:00 + 12h = 10:00 (dia siguiente)
+  Limite: 08:00
+  Resultado: 10:00 > 08:00 => Ruta DESCARTADA
+
+Codigo de prueba:
+
+<?php
+// test_restriccion_horaria.php
+require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/app/Services/SimplexSolver.php';
+
+use App\Services\SimplexSolver;
+
+$solver = new SimplexSolver();
+
+// Caso: salida 22:00, ruta R03 con 12h -> llega 10:00, debe descartarse
+$resultado = $solver->resolver([
+    'total_cabezas' => 60,
+    'Mi' => [
+        'R01' => -401.44,
+        'R02' => -490.28,
+        'R03' => -371.44,
+        'R04' => -460.28,
+    ],
+    'bloqueos' => [],
+    'tiempos' => ['R01' => 6.5, 'R02' => 9.0, 'R03' => 12.0, 'R04' => 10.0],
+    'hora_salida' => '22:00',
+    'prob_lluvia' => 0.10
+]);
+
+echo "=== PRUEBA RESTRICCION HORARIA ===\n";
+echo "Salida: 22:00, R03 tiempo: 12h (llega 10:00)\n";
+echo "Limite: 08:00\n\n";
+
+$rutaDescarte = $resultado['detalle_rutas']['R03'] ?? [];
+if (!empty($rutaDescarte) && $rutaDescarte['disponible'] === false) {
+    echo "[PASO 1/2] R03 descartada por horario: OK\n";
+    echo "Motivo: " . $rutaDescarte['motivo_descarte'] . "\n";
+} else {
+    echo "[FALLO 1/2] R03 deberia estar descartada por horario\n";
+}
+
+// Verificar que R01 y R04 siguen disponibles (llegan antes de 08:00)
+$r01Ok = ($resultado['detalle_rutas']['R01']['disponible'] ?? false);
+$r04Ok = ($resultado['detalle_rutas']['R04']['disponible'] ?? false);
+if ($r01Ok || $r04Ok) {
+    echo "[PASO 2/2] Otras rutas disponibles: OK\n";
+} else {
+    echo "[FALLO 2/2] Deberia haber al menos una ruta disponible\n";
+}
+
+echo "\nResultado:\n";
+print_r($resultado);
+
+// Segunda prueba: si todas las rutas exceden el limite, factible=false
+$resultado2 = $solver->resolver([
+    'total_cabezas' => 60,
+    'Mi' => ['R01' => 100, 'R02' => 100, 'R03' => 100, 'R04' => 100],
+    'bloqueos' => [],
+    'tiempos' => ['R01' => 20, 'R02' => 20, 'R03' => 20, 'R04' => 20],
+    'hora_salida' => '22:00',
+    'prob_lluvia' => 0.10
+]);
+
+echo "\n=== PRUEBA: TODAS LAS RUTAS EXCEDEN LIMITE ===\n";
+if ($resultado2['factible'] === false) {
+    echo "[PASO] factible=false correctamente: OK\n";
+} else {
+    echo "[FALLO] Deberia ser factible=false\n";
+}
+echo "Mensaje: " . $resultado2['mensaje'] . "\n";
+
+7.3 PRUEBA DE VALIDACION DE DATOS (valores invalidos)
+--------------------------------------------------------------------------------
+
+Se prueban las validaciones del sistema para evitar datos incorrectos.
+
+Codigo de prueba:
+
+<?php
+// test_validacion.php - Prueba de validacion de datos
+require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/app/Core/Validator.php';
+
+use App\Core\Validator;
+
+echo "=== PRUEBA DE VALIDACION ===\n\n";
+
+$validator = new Validator();
+
+// Test 1: Precio negativo
+$datos = ['precio_kg' => -5];
+$reglas = ['precio_kg' => 'required|numeric|min:0.01'];
+$valido = $validator->validate($datos, $reglas);
+echo "Test 1 - Precio negativo (-5): ";
+echo $valido ? "INVALIDO (FALLO)" : "RECHAZADO (OK)";
+echo "\n";
+
+// Test 2: Precio cero
+$datos = ['precio_kg' => 0];
+$valido = $validator->validate($datos, $reglas);
+echo "Test 2 - Precio cero (0): ";
+echo $valido ? "INVALIDO (FALLO)" : "RECHAZADO (OK)";
+echo "\n";
+
+// Test 3: Precio valido
+$datos = ['precio_kg' => 32];
+$valido = $validator->validate($datos, $reglas);
+echo "Test 3 - Precio valido (32): ";
+echo $valido ? "ACEPTADO (OK)" : "RECHAZADO (FALLO)";
+echo "\n";
+
+// Test 4: Probabilidad lluvia > 1
+$validator2 = new Validator();
+$datos = ['prob_lluvia' => 1.5];
+$reglas2 = ['prob_lluvia' => 'required|numeric|min:0|max:1'];
+$valido = $validator2->validate($datos, $reglas2);
+echo "Test 4 - Probabilidad > 1 (1.5): ";
+echo $valido ? "INVALIDO (FALLO)" : "RECHAZADO (OK)";
+echo "\n";
+
+// Test 5: Probabilidad lluvia < 0
+$validator3 = new Validator();
+$datos = ['prob_lluvia' => -0.5];
+$valido = $validator3->validate($datos, $reglas2);
+echo "Test 5 - Probabilidad < 0 (-0.5): ";
+echo $valido ? "INVALIDO (FALLO)" : "RECHAZADO (OK)";
+echo "\n";
+
+// Test 6: Probabilidad valida
+$validator4 = new Validator();
+$datos = ['prob_lluvia' => 0.35];
+$valido = $validator4->validate($datos, $reglas2);
+echo "Test 6 - Probabilidad valida (0.35): ";
+echo $valido ? "ACEPTADO (OK)" : "RECHAZADO (FALLO)";
+echo "\n";
+
+// Test 7: Cabezas negativas
+$validator5 = new Validator();
+$datos = ['cabezas' => -10];
+$reglas3 = ['cabezas' => 'required|integer|min:1'];
+$valido = $validator5->validate($datos, $reglas3);
+echo "Test 7 - Cabezas negativas (-10): ";
+echo $valido ? "INVALIDO (FALLO)" : "RECHAZADO (OK)";
+echo "\n";
+
+// Test 8: Cabezas tipo string
+$validator6 = new Validator();
+$datos = ['cabezas' => 'abc'];
+$valido = $validator6->validate($datos, $reglas3);
+echo "Test 8 - Cabezas texto ('abc'): ";
+echo $valido ? "INVALIDO (FALLO)" : "RECHAZADO (OK)";
+echo "\n";
+
+// Test 9: Campos vacios
+$validator7 = new Validator();
+$datos = ['cabezas' => '', 'precio_kg' => ''];
+$reglas4 = ['cabezas' => 'required', 'precio_kg' => 'required'];
+$valido = $validator7->validate($datos, $reglas4);
+echo "Test 9 - Campos vacios: ";
+echo $valido ? "INVALIDO (FALLO)" : "RECHAZADO (OK)";
+echo "\n";
+
+echo "\n=== FIN PRUEBAS DE VALIDACION ===\n";
+
+7.4 PRUEBA DE RUTA CLIMATICA (prob_lluvia >= 0.40)
+--------------------------------------------------------------------------------
+
+Escenario: Probabilidad de lluvia en Abapo = 0.45 (supera umbral 0.40).
+  Resultado esperado: Ruta R03 (Ipati-Abapo) descartada.
+
+<?php
+// test_clima.php
+require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/app/Services/SimplexSolver.php';
+
+use App\Services\SimplexSolver;
+
+$solver = new SimplexSolver();
+
+$resultado = $solver->resolver([
+    'total_cabezas' => 60,
+    'Mi' => ['R01' => -401.44, 'R02' => -490.28, 'R03' => -371.44, 'R04' => -460.28],
+    'bloqueos' => [],
+    'tiempos' => ['R01'=>6.5, 'R02'=>9.0, 'R03'=>11.0, 'R04'=>10.0],
+    'hora_salida' => '20:00',
+    'prob_lluvia' => 0.45
+]);
+
+echo "=== PRUEBA CLIMA (prob_lluvia=0.45 >= 0.40) ===\n";
+$r03 = $resultado['detalle_rutas']['R03'] ?? [];
+if (!$r03['disponible'] && $r03['filtros']['clima']) {
+    echo "[PASO] R03 descartada por clima: OK\n";
+} else {
+    echo "[FALLO] R03 deberia estar descartada por clima\n";
+}
+
+echo "Ruta elegida: " . $resultado['ruta_elegida'] . "\n";
+echo "Z: " . $resultado['Z'] . "\n";
+print_r($resultado);
+
+7.5 PRUEBA DE SIN RUTAS DISPONIBLES (factible = false)
+--------------------------------------------------------------------------------
+
+Escenario: Todas las rutas bloqueadas o descartadas.
+
+<?php
+// test_no_factible.php
+require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/app/Services/SimplexSolver.php';
+
+use App\Services\SimplexSolver;
+
+$solver = new SimplexSolver();
+
+// Todas las rutas bloqueadas
+$resultado = $solver->resolver([
+    'total_cabezas' => 60,
+    'Mi' => ['R01' => 100, 'R02' => 200, 'R03' => 300, 'R04' => 400],
+    'bloqueos' => ['R01' => true, 'R02' => true, 'R03' => true, 'R04' => true],
+    'tiempos' => ['R01'=>6.5, 'R02'=>9.0, 'R03'=>11.0, 'R04'=>10.0],
+    'hora_salida' => '20:00',
+    'prob_lluvia' => 0.10
+]);
+
+echo "=== PRUEBA NO FACTIBLE (todas bloqueadas) ===\n";
+echo "Factible: " . ($resultado['factible'] ? 'SI' : 'NO') . "\n";
+if ($resultado['factible'] === false) {
+    echo "[PASO] factible=false: OK\n";
+} else {
+    echo "[FALLO] Deberia ser factible=false\n";
+}
+echo "Mensaje: " . $resultado['mensaje'] . "\n";
+
+
+================================================================================
+FASE 8: ENTREGA Y DOCUMENTACION
+================================================================================
+
+8.1 INSTRUCCIONES DE DESPLIEGUE
+--------------------------------------------------------------------------------
+
+REQUISITOS DEL SERVIDOR:
+  - Apache 2.4+ con mod_rewrite habilitado
+  - PHP 8.0 o superior con extensiones:
+      * PDO (php_pdo_mysql)
+      * mbstring
+      * json
+      * fileinfo
+      * openssl
+      * gd (para Dompdf)
+  - MySQL 8.0 o superior
+  - Composer (gestor de dependencias PHP)
+
+PASOS DE INSTALACION:
+
+1. CLONAR O COPIAR ARCHIVOS:
+   Copiar todo el contenido del proyecto a la carpeta del servidor web:
+   - Apache: C:\Apache24\htdocs\agaprova-dss\
+   - XAMPP: C:\xampp\htdocs\agaprova-dss\
+   - Linux: /var/www/html/agaprova-dss/
+
+2. CONFIGURAR BASE DE DATOS:
+   a) Acceder a MySQL:
+      mysql -u root -p
+
+   b) Ejecutar el script de esquema:
+      source C:/ruta/completa/database/schema.sql
+
+   c) Ejecutar el script de datos iniciales:
+      source C:/ruta/completa/database/seed.sql
+
+   d) Verificar la instalacion:
+      USE dss_agaprova;
+      SHOW TABLES;
+      SELECT * FROM usuarios;
+
+   e) (Opcional) Crear un usuario MySQL dedicado:
+      CREATE USER 'agaprova_user'@'localhost' IDENTIFIED BY 'password_seguro';
+      GRANT ALL PRIVILEGES ON dss_agaprova.* TO 'agaprova_user'@'localhost';
+      FLUSH PRIVILEGES;
+
+3. CONFIGURAR LA APLICACION:
+   Editar config/database.php con las credenciales de MySQL:
+   define('DB_HOST', 'localhost');
+   define('DB_PORT', '3306');
+   define('DB_NAME', 'dss_agaprova');
+   define('DB_USER', 'agaprova_user');
+   define('DB_PASS', 'password_seguro');
+
+4. INSTALAR DEPENDENCIAS (COMPOSER):
+   cd C:\Apache24\htdocs\agaprova-dss
+   composer install
+
+   Esto instalara Dompdf (^2.0) y generara el autoload.
+
+   Si no tiene Composer instalado, descargarlo de:
+   https://getcomposer.org/download/
+
+5. CONFIGURAR APACHE:
+   Asegurar que mod_rewrite este habilitado:
+   a) Abrir httpd.conf
+   b) Descomentar la linea: LoadModule rewrite_module modules/mod_rewrite.so
+   c) Reiniciar Apache
+
+   Verificar que el archivo .htaccess sea permitido:
+   <Directory "C:/Apache24/htdocs/agaprova-dss">
+       AllowOverride All
+       Require all granted
+   </Directory>
+
+6. CONFIGURAR PERMISOS (Linux):
+   chmod -R 755 storage/
+   chmod -R 755 vendor/
+   chown -R www-data:www-data storage/
+
+7. VERIFICAR INSTALACION:
+   Abrir en el navegador:
+   http://localhost/agaprova-dss/login
+
+   Credenciales por defecto:
+   Usuario: operador
+   Password: admin123
+
+8.2 ARCHIVOS ENTREGABLES
+--------------------------------------------------------------------------------
+
+Lista completa de archivos del proyecto:
+
+database/
+  schema.sql          - Script de creacion de la base de datos (DDL)
+  seed.sql            - Datos de catalogos y configuracion inicial
+
+config/
+  database.php        - Configuracion de conexion a MySQL y constantes
+
+public/
+  index.php           - Front controller (punto de entrada unico)
+  .htaccess           - Rewrite rules para URLs limpias
+  assets/
+    css/
+      style.css       - Hoja de estilos con colores institucionales
+    js/
+      app.js          - JavaScript de la aplicacion
+
+app/
+  Core/
+    App.php           - Orquestador de la aplicacion y registro de rutas
+    Router.php        - Enrutador de URLs a controladores
+    Controller.php    - Controlador base
+    Model.php         - Modelo base (Active Record)
+    Database.php      - Conexion PDO Singleton
+    Request.php       - Manejo de peticiones HTTP
+    Response.php      - Manejo de respuestas HTTP
+    Session.php       - Manejo de sesiones PHP
+    Validator.php     - Validacion de datos
+    Auth.php          - Autenticacion de usuarios
+    Middleware/
+      AuthMiddleware.php  - Middleware de autenticacion
+
+  Controllers/
+    AuthController.php        - Login/logout
+    DashboardController.php   - Panel principal
+    LoteController.php        - CRUD lotes de ganado
+    PrecioController.php      - CRUD precios de mercado
+    ClimaController.php       - Registro climatico
+    BloqueoController.php     - Gestion de bloqueos viales
+    CostoFleteController.php  - Costos de flete por ruta
+    SimplexController.php     - Calculo de optimizacion
+    SimulacionController.php  - Simulacion de escenarios A-F
+    ReporteController.php     - Generacion y descarga de PDFs
+
+  Models/
+    Lote.php, Precio.php, Clima.php, Bloqueo.php
+    Ruta.php, Mercado.php, CostoFlete.php
+    CondicionGanado.php, Estacion.php, Usuario.php
+
+  Services/
+    SimplexSolver.php         - Algoritmo de optimizacion
+    ClimaService.php          - Evaluacion climatica
+    EstacionalidadService.php - Factores estacionales
+    ReporteService.php        - Generacion de PDF con Dompdf
+
+  Views/
+    layouts/header.php, footer.php
+    auth/login.php
+    dashboard/index.php
+    lotes/index.php, create.php, show.php
+    precios/index.php, create.php, edit.php
+    clima/index.php, create.php
+    bloqueos/index.php, create.php
+    costos/index.php, create.php
+    simplex/resultado.php
+    simulacion/index.php, resultado.php
+    reportes/index.php, show.php
+    errors/404.php, 500.php
+
+helpers/
+  functions.php       - Funciones auxiliares (e, csrf_field, old, etc.)
+
+storage/
+  reportes/           - Directorio para PDFs generados
+
+composer.json         - Dependencias (dompdf/dompdf ^2.0)
+.htaccess             - Redireccion a public/
+
+tests/ (opcional)
+  test_caso_base.php
+  test_restriccion_horaria.php
+  test_validacion.php
+  test_clima.php
+  test_no_factible.php
+
+8.3 MANUAL BREVE DE USO
+--------------------------------------------------------------------------------
+
+1. INICIO DE SESION:
+   - Acceder a http://localhost/agaprova-dss/login
+   - Ingresar credenciales: usuario 'operador', password 'admin123'
+   - Se recomienda cambiar la contrasena en produccion.
+
+2. REGISTRO DE DATOS SEMANALES (orden recomendado):
+   a) LOTE: Registrar el lote de ganado (cabezas, peso, condicion, estacion, hora salida)
+   b) PRECIOS: Actualizar precios de Santa Cruz y Cochabamba
+   c) CLIMA: Ingresar probabilidad de lluvia en Abapo
+   d) BLOQUEOS: Activar/desactivar bloqueos de rutas
+   e) COSTOS: Registrar costos de flete para las 4 rutas
+
+3. CALCULO DE OPTIMIZACION (SIMPLEX):
+   - Ir a "Simplex" en el menu
+   - Revisar los datos cargados automaticamente
+   - Hacer clic en "Calcular Optimizacion"
+   - El sistema mostrara la ruta seleccionada, margenes y Z total
+
+4. SIMULACION DE ESCENARIOS:
+   - Ir a "Simular" en el menu
+   - Seleccionar un escenario predefinido (A-F) o crear personalizado
+   - Modificar parametros y ejecutar
+   - Comparar resultados sin afectar datos reales
+
+5. GENERACION DE REPORTE PDF:
+   - Despues de calcular el Simplex, ir a "Reportes"
+   - Clic en "Generar Reporte PDF"
+   - Descargar o visualizar el documento generado
+
+6. CIERRE DE SESION:
+   - Clic en el icono de salida en la esquina superior derecha
+   - Confirmar la accion
+
+INTERPRETACION DE RESULTADOS:
+  - Z positivo: Ganancia neta semanal
+  - Z negativo: Perdida neta (el modelo minimiza la perdida)
+  - "NO FACTIBLE": Ninguna ruta disponible, revisar bloqueos y clima
+  - La ruta con mayor Mi (menos negativa) recibe todas las cabezas
+
+8.4 MANTENIMIENTO Y RESPALDO
+--------------------------------------------------------------------------------
+
+RESPALDO DE BASE DE DATOS:
+  mysqldump -u root -p dss_agaprova > respaldo_dss_$(date +%Y%m%d).sql
+
+RESTAURACION:
+  mysql -u root -p dss_agaprova < respaldo_dss_20260601.sql
+
+ACTUALIZACION DE DEPENDENCIAS:
+  cd /ruta/del/proyecto
+  composer update
+
+LOGS:
+  Los errores se registran en el log de errores de PHP.
+  Para habilitar logging especifico, configurar en database.php:
+  define('APP_ENV', 'development');
+
+SEGURIDAD RECOMENDADA:
+  - Cambiar password del usuario 'operador' en produccion
+  - Usar conexion HTTPS en produccion
+  - Configurar firewall para restringir acceso a MySQL
+  - Mantener PHP y dependencias actualizados
+  - Realizar respaldos semanales de la base de datos
+
+SOLUCION DE PROBLEMAS COMUNES:
+  - Error 500: Verificar config/database.php y permisos de storage/
+  - Pagina en blanco: Verificar error_log de PHP
+  - Dompdf no genera PDF: Verificar que la extension gd este habilitada
+  - mod_rewrite no funciona: Verificar configuracion de Apache
+  - No se conecta a MySQL: Verificar credenciales y servicio MySQL
+
+================================================================================
+FIN DEL DOCUMENTO
+================================================================================

@@ -53,6 +53,7 @@ class PrecioController extends Controller {
         $hist_data = $this->db->getConnection()->query($sql_hist_chart)->fetchAll();
         
         $this->render('precios.index', [
+            'page_title'    => 'Precios de Mercado',
             'precios' => $precios,
             'mercados' => $mercados,
             'hist_data' => json_encode($hist_data),

@@ -16,8 +16,9 @@ class ClimaController extends Controller {
         
         $this->render('clima.index', [
             'clima_actual' => $clima_actual,
-            'historico' => $historico,
-            'csrf' => $this->generateCsrf()
+            'historico'    => $historico,
+            'page_title'   => 'Clima',
+            'csrf'         => $this->generateCsrf()
         ]);
     }
     

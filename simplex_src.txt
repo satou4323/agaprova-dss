@@ -1,0 +1,439 @@
+<?php\
+namespace App\\Services;\
+\
+use App\\Models\\{Precio, CostoFlete, Bloqueo, CondicionGanado, Estacion, Clima};\
+\
+class SimplexSolver {\
+\
+    public function optimizar($lote_id, $cabezas, $peso_promedio, $condicion_id, $estacion_id, $hora_salida, $parametros_escenario = []) {\
+        $resultado = [\
+            'factible' => false,\
+            'x1' => 0, 'x2' => 0, 'x3' => 0, 'x4' => 0,\
+            'ganancia_total' => 0,\
+            'detalles' => [],\
+            'diagnostico' => []\
+        ];\
+\
+        $diagnostico = [];\
+\
+        // Validar restricción horaria\
+        $rutas_activas = $this->validarRestricciones($hora_salida);\
+\
+        if (empty($rutas_activas)) {\
+            $diagnostico[] = 'Ninguna ruta cumple la restricción horaria (llegada antes de las ' . HORA_LIMITE . ':00). Verifique la hora de salida.';\
+            $resultado['detalles']['diagnostico'] = $diagnostico;\
+            return $resultado;\
+        }\
+\
+        // Obtener factores de eficiencia (Modelo Matemático: E_inv efectivo = E_INV_BASE × factor_estación × factor_condición)\
+        $factor_estacion = Estacion::getFactorPorId($estacion_id);\
+        $factor_condicion = CondicionGanado::getFactorPorId($condicion_id);\
+        $eficiencia_efectiva = E_INV_BASE * $factor_estacion * $factor_condicion;\
+\
+        // Obtener precios (con sobreescritura por escenario si aplica)\
+        $precio_sc = floatval(Precio::getPorMercado(1)?->precio_kg ?? 32);\
+        $precio_cb = floatval(Precio::getPorMercado(2)?->precio_kg ?? 34);\
+        if (isset($parametros_escenario['precio_sc'])) {\
+            $precio_sc = floatval($parametros_escenario['precio_sc']);\
+        }\
+        if (isset($parametros_escenario['precio_cb'])) {\
+            $precio_cb = floatval($parametros_escenario['precio_cb']);\
+        }\
+\
+        // Obtener costos (con sobreescritura por escenario si aplica)\
+        $costo_c1 = CostoFlete::getCostoPorRuta(1);\
+        $costo_c2 = CostoFlete::getCostoPorRuta(2);\
+        $costo_c3 = CostoFlete::getCostoPorRuta(3);\
+        $costo_c4 = CostoFlete::getCostoPorRuta(4);\
+        if (isset($parametros_escenario['costo_c1'])) {\
+            $costo_c1 = floatval($parametros_escenario['costo_c1']);\
+        }\
+        if (isset($parametros_escenario['costo_c2'])) {\
+            $costo_c2 = floatval($parametros_escenario['costo_c2']);\
+        }\
+        if (isset($parametros_escenario['costo_c3'])) {\
+            $costo_c3 = floatval($parametros_escenario['costo_c3']);\
+        }\
+        if (isset($parametros_escenario['costo_c4'])) {\
+            $costo_c4 = floatval($parametros_escenario['costo_c4']);\
+        }\
+\
+        // Restricción climática (umbral configurable via constante LLUVIA_THRESHOLD)\
+        $prob_lluvia = Clima::getProbabilidadLluvia();\
+        if (isset($parametros_escenario['prob_lluvia'])) {\
+            $prob_lluvia = floatval($parametros_escenario['prob_lluvia']);\
+        }\
+        $ruta3_disponible = ($prob_lluvia < LLUVIA_THRESHOLD) ? 1 : 0;\
+        if ($ruta3_disponible == 0) {\
+            $diagnostico[] = 'Ruta 3 (Ipati-Abapó) bloqueada por clima: probabilidad de lluvia ' . number_format($prob_lluvia * 100, 0) . '% (máx. ' . (LLUVIA_THRESHOLD * 100) . '%).';\
+        }\
+\
+        // Calcular márgenes según Modelo Matemático: Mi = (Precio × peso_promedio × E_inv_efectivo) – Costo\
+        $m1 = ($precio_sc * $peso_promedio * $eficiencia_efectiva) - $costo_c1;\
+        $m2 = ($precio_cb * $peso_promedio * $eficiencia_efectiva) - $costo_c2;\
+        $m3 = ($precio_sc * $peso_promedio * $eficiencia_efectiva) - $costo_c3;\
+        $m4 = ($precio_cb * $peso_promedio * $eficiencia_efectiva) - $costo_c4;\
+\
+        // Aplicar bloqueos de rutas (con sobreescritura por escenario si aplica)\
+        $bloqueo_bd_r1 = Bloqueo::estasBloqueada(1) ? 0 : 1;\
+        $bloqueo_bd_r2 = Bloqueo::estasBloqueada(2) ? 0 : 1;\
+        $bloqueo_bd_r3 = Bloqueo::estasBloqueada(3) ? 0 : 1;\
+        $bloqueo_bd_r4 = Bloqueo::estasBloqueada(4) ? 0 : 1;\
+\
+        $bloqueo_r1 = $bloqueo_bd_r1;\
+        $bloqueo_r2 = $bloqueo_bd_r2;\
+        $bloqueo_r3 = $bloqueo_bd_r3;\
+        $bloqueo_r4 = $bloqueo_bd_r4;\
+        if (isset($parametros_escenario['bloqueo_r1'])) {\
+            $bloqueo_r1 = $parametros_escenario['bloqueo_r1'] ? 0 : 1;\
+        }\
+        if (isset($parametros_escenario['bloqueo_r2'])) {\
+            $bloqueo_r2 = $parametros_escenario['bloqueo_r2'] ? 0 : 1;\
+        }\
+        if (isset($parametros_escenario['bloqueo_r3'])) {\
+            $bloqueo_r3 = $parametros_escenario['bloqueo_r3'] ? 0 : 1;\
+        }\
+        if (isset($parametros_escenario['bloqueo_r4'])) {\
+            $bloqueo_r4 = $parametros_escenario['bloqueo_r4'] ? 0 : 1;\
+        }\
+\
+        if ($bloqueo_r1 == 0 && $bloqueo_bd_r1 == 1) {\
+            $diagnostico[] = 'Ruta 1 (Samaipata) bloqueada por configuración del escenario.';\
+        } elseif ($bloqueo_r1 == 0) {\
+            $diagnostico[] = 'Ruta 1 (Samaipata) bloqueada en la base de datos.';\
+        }\
+        if ($bloqueo_r2 == 0 && $bloqueo_bd_r2 == 1) {\
+            $diagnostico[] = 'Ruta 2 (Comarapa) bloqueada por configuración del escenario.';\
+        } elseif ($bloqueo_r2 == 0) {\
+            $diagnostico[] = 'Ruta 2 (Comarapa) bloqueada en la base de datos.';\
+        }\
+        if ($bloqueo_r3 == 0 && $bloqueo_bd_r3 == 1) {\
+            $diagnostico[] = 'Ruta 3 (Ipati-Abapó) bloqueada por configuración del escenario.';\
+        } elseif ($bloqueo_r3 == 0 && $ruta3_disponible == 0) {\
+        } elseif ($bloqueo_r3 == 0) {\
+            $diagnostico[] = 'Ruta 3 (Ipati-Abapó) bloqueada en la base de datos.';\
+        }\
+        if ($bloqueo_r4 == 0 && $bloqueo_bd_r4 == 1) {\
+            $diagnostico[] = 'Ruta 4 (Aiquile) bloqueada por configuración del escenario.';\
+        } elseif ($bloqueo_r4 == 0) {\
+            $diagnostico[] = 'Ruta 4 (Aiquile) bloqueada en la base de datos.';\
+        }\
+\
+        // Restricción climática combinada con bloqueo\
+        $bloqueo_r3 = $bloqueo_r3 && $ruta3_disponible;\
+\
+        // Verificar márgenes por ruta\
+        $margen_info = [];\
+        $margen_info[] = 'R1 (Samaipata→SC): Bs ' . number_format($m1, 2) . '/cab (' . ($m1 <= 0 ? 'pérdida' : 'ganancia') . ')  —  (32 Bs/kg × ' . number_format($peso_promedio, 0) . ' kg × ' . number_format($eficiencia_efectiva, 4) . ' eficiencia) − ' . number_format($costo_c1, 2) . ' Bs costo = Bs ' . number_format($m1, 2);\
+        $margen_info[] = 'R2 (Comarapa→CB): Bs ' . number_format($m2, 2) . '/cab (' . ($m2 <= 0 ? 'pérdida' : 'ganancia') . ')  —  (34 Bs/kg × ' . number_format($peso_promedio, 0) . ' kg × ' . number_format($eficiencia_efectiva, 4) . ' eficiencia) − ' . number_format($costo_c2, 2) . ' Bs costo = Bs ' . number_format($m2, 2);\
+        $margen_info[] = 'R3 (Ipati-Abapó→SC): Bs ' . number_format($m3, 2) . '/cab (' . ($m3 <= 0 ? 'pérdida' : 'ganancia') . ')  —  (32 Bs/kg × ' . number_format($peso_promedio, 0) . ' kg × ' . number_format($eficiencia_efectiva, 4) . ' eficiencia) − ' . number_format($costo_c3, 2) . ' Bs costo = Bs ' . number_format($m3, 2);\
+        $margen_info[] = 'R4 (Aiquile→CB): Bs ' . number_format($m4, 2) . '/cab (' . ($m4 <= 0 ? 'pérdida' : 'ganancia') . ')  —  (34 Bs/kg × ' . number_format($peso_promedio, 0) . ' kg × ' . number_format($eficiencia_efectiva, 4) . ' eficiencia) − ' . number_format($costo_c4, 2) . ' Bs costo = Bs ' . number_format($m4, 2);\
+\
+        // Máscara de disponibilidad\
+        $disponibles = [\
+            1 => $bloqueo_r1 && in_array(1, $rutas_activas),\
+            2 => $bloqueo_r2 && in_array(2, $rutas_activas),\
+            3 => $bloqueo_r3 && in_array(3, $rutas_activas),\
+            4 => $bloqueo_r4 && in_array(4, $rutas_activas)\
+        ];\
+\
+        // Diagnóstico de disponibilidad por ruta\
+        $rutas_nombre = [1 => 'R1 (Samaipata)', 2 => 'R2 (Comarapa)', 3 => 'R3 (Ipati-Abapó)', 4 => 'R4 (Aiquile)'];\
+        foreach ($disponibles as $r => $disp) {\
+            if (!$disp) {\
+                $razones = [];\
+                $r_bloqueo = ${'bloqueo_r' . $r};\
+                if (!$r_bloqueo) {\
+                    if ($r == 3 && $ruta3_disponible == 0) {\
+                        $razones[] = 'bloqueada por clima';\
+                    } else {\
+                        $razones[] = 'bloqueada';\
+                    }\
+                }\
+                if (!in_array($r, $rutas_activas)) {\
+                    $razones[] = 'no cumple restricción horaria';\
+                }\
+                $diagnostico[] = $rutas_nombre[$r] . ' no disponible: ' . implode(', ', $razones) . '.';\
+            }\
+        }\
+\
+        // ALGORITMO SIMPLEX — Método Big M (Tableau completo)\
+        // Problema canónico:\
+        //   Maximizar Z = M1·x1 + M2·x2 + M3·x3 + M4·x4\
+        //   Sujeto a:  x1 + x2 + x3 + x4 = G_totales\
+        //              x1, x2, x3, x4 ≥ 0\
+        //\
+        // Forma estándar con Big M (variable artificial a1 con penalización -M):\
+        //   Maximizar Z = M1·x1 + M2·x2 + M3·x3 + M4·x4 - M·a1\
+        //   Sujeto a:  x1 + x2 + x3 + x4 + a1 = G_totales\
+        //              x1, x2, x3, x4, a1 ≥ 0\
+        //   con M >>> max(|Mi|) para forzar a1 = 0 en la solución óptima.\
+        //\
+        // Implementación: Tableau Simplex con 1 restricción + 1 fila Z.\
+        // Para este problema (1 restricción de igualdad, sin cotas superiores),\
+        // el algoritmo converge en 1 iteración: entra la variable de mayor margen,\
+        // sale a1, y se asigna todo el stock a la ruta óptima.\
+\
+        $simplex_result = $this->_resolverSimplexBigM(\
+            [1 => $m1, 2 => $m2, 3 => $m3, 4 => $m4],\
+            $disponibles,\
+            $cabezas\
+        );\
+\
+        // Asignación obligatoria: SIEMPRE se asigna el stock completo\
+        // (Restricción del modelo: x1 + x2 + x3 + x4 = G_totales)\
+        if ($simplex_result['factible']) {\
+            $resultado['factible'] = true;\
+            $rutaOptima = $simplex_result['ruta_optima'];\
+            $maxMargen = $simplex_result['margen_optimo'];\
+\
+            $resultado['x1'] = $simplex_result['x1'];\
+            $resultado['x2'] = $simplex_result['x2'];\
+            $resultado['x3'] = $simplex_result['x3'];\
+            $resultado['x4'] = $simplex_result['x4'];\
+            $resultado['ganancia_total'] = $simplex_result['ganancia_total'];\
+\
+            $tipo_margen = $maxMargen >= 0 ? 'ganancia' : 'pérdida';\
+\
+            if ($maxMargen >= 0) {\
+                $diagnostico[] = 'Solución Simplex óptima: Ruta ' . $rutaOptima . ' con margen positivo de Bs ' . number_format($maxMargen, 2) . '/cabeza.';\
+            } else {\
+                $diagnostico[] = 'Solución Simplex: Ruta ' . $rutaOptima . ' con margen negativo de Bs ' . number_format($maxMargen, 2) . '/cabeza (menor pérdida disponible). Envío obligatorio cumplido.';\
+            }\
+            if ($simplex_result['iteraciones'] > 1) {\
+                $diagnostico[] = 'Convergencia Simplex en ' . $simplex_result['iteraciones'] . ' iteraciones.';\
+            }\
+\
+            $resultado['detalles'] = [\
+                'cabezas' => $cabezas,\
+                'peso_promedio' => $peso_promedio,\
+                'e_inv_base' => E_INV_BASE,\
+                'eficiencia_efectiva' => round($eficiencia_efectiva, 4),\
+                'precio_sc' => $precio_sc,\
+                'precio_cb' => $precio_cb,\
+                'costo_c1' => $costo_c1,\
+                'costo_c2' => $costo_c2,\
+                'costo_c3' => $costo_c3,\
+                'costo_c4' => $costo_c4,\
+                'margen_r1' => round($m1, 2),\
+                'margen_r2' => round($m2, 2),\
+                'margen_r3' => round($m3, 2),\
+                'margen_r4' => round($m4, 2),\
+                'ruta_optima' => $rutaOptima,\
+                'factor_estacion' => $factor_estacion,\
+                'factor_condicion' => $factor_condicion,\
+                'probabilidad_lluvia' => $prob_lluvia,\
+                'disponibles' => $disponibles,\
+                'diagnostico' => $diagnostico,\
+                'margen_info' => $margen_info,\
+                'tipo_margen' => $tipo_margen,\
+                'algoritmo' => 'Simplex Big M',\
+                'iteraciones_simplex' => $simplex_result['iteraciones']\
+            ];\
+        } else {\
+            $diagnostico[] = 'No hay rutas disponibles para asignar. No se cumple la restricción de envío obligatorio.';\
+            $resultado['detalles']['cabezas'] = $cabezas;\
+            $resultado['detalles']['peso_promedio'] = $peso_promedio;\
+            $resultado['detalles']['diagnostico'] = $diagnostico;\
+            $resultado['detalles']['margen_info'] = $margen_info;\
+            $resultado['detalles']['factor_estacion'] = $factor_estacion;\
+            $resultado['detalles']['factor_condicion'] = $factor_condicion;\
+            $resultado['detalles']['probabilidad_lluvia'] = $prob_lluvia;\
+            $resultado['detalles']['precio_sc'] = $precio_sc;\
+            $resultado['detalles']['precio_cb'] = $precio_cb;\
+            $resultado['detalles']['costo_c1'] = $costo_c1;\
+            $resultado['detalles']['costo_c2'] = $costo_c2;\
+            $resultado['detalles']['costo_c3'] = $costo_c3;\
+            $resultado['detalles']['costo_c4'] = $costo_c4;\
+            $resultado['detalles']['margen_r1'] = round($m1, 2);\
+            $resultado['detalles']['margen_r2'] = round($m2, 2);\
+            $resultado['detalles']['margen_r3'] = round($m3, 2);\
+            $resultado['detalles']['margen_r4'] = round($m4, 2);\
+            $resultado['detalles']['disponibles'] = $disponibles;\
+        }\
+\
+        return $resultado;\
+    }\
+\
+    /**\
+     * Implementación del Método Simplex Big M con Tableau completo.\
+     *\
+     * @param array $margenes   [ruta_id => margen_por_cabeza] para las 4 rutas\
+     * @param array $disponibles [ruta_id => true/false] disponibilidad de cada ruta\
+     * @param float $cabezas     Total de cabezas a asignar (G_totales)\
+     * @return array ['factible', 'x1'..'x4', 'ganancia_total', 'ruta_optima', 'margen_optimo', 'iteraciones']\
+     */\
+    private function _resolverSimplexBigM($margenes, $disponibles, $cabezas) {\
+        $M = 1e10;\
+        $n = 4;\
+        $cols = $n + 2; // x1..x4 + a1 + RHS\
+\
+        // Tableau: fila 0 = restricción, fila 1 = Z\
+        $t = [\
+            array_fill(0, $cols, 0.0),\
+            array_fill(0, $cols, 0.0)\
+        ];\
+\
+        // Restricción: Σ xi + a1 = G_totales\
+        for ($i = 1; $i <= $n; $i++) {\
+            $t[0][$i - 1] = $disponibles[$i] ? 1.0 : 0.0;\
+        }\
+        $t[0][$n] = 1.0;     // a1\
+        $t[0][$cols - 1] = floatval($cabezas); // RHS\
+\
+        // Fila Z: Z - Σ Mi·xi + M·a1 = 0\
+        for ($i = 1; $i <= $n; $i++) {\
+            $t[1][$i - 1] = $disponibles[$i] ? -floatval($margenes[$i]) : -$M;\
+        }\
+        $t[1][$n] = $M;       // a1\
+        $t[1][$cols - 1] = 0.0;\
+\
+        // Base inicial: a1 (columna índice 4)\
+        $basis = [$n]; // columna de a1\
+\
+        // Eliminar a1 de la fila Z (pues a1 está en la base)\
+        $factor_a1 = $t[1][$n];\
+        for ($j = 0; $j < $cols; $j++) {\
+            $t[1][$j] -= $factor_a1 * $t[0][$j];\
+        }\
+\
+        // Iteraciones Simplex\
+        $iteraciones = 0;\
+        $max_iter = 20;\
+        while ($iteraciones < $max_iter) {\
+            $iteraciones++;\
+\
+            // 1) Encontrar variable entrante (coeficiente más negativo en Z para maximización)\
+            $entering = -1;\
+            for ($j = 0; $j <= $n; $j++) { // incluye a1 (puede re-entrar si es necesario)\
+                if ($t[1][$j] < -1e-9) {\
+                    if ($entering == -1 || $t[1][$j] < $t[1][$entering]) {\
+                        $entering = $j;\
+                    }\
+                }\
+            }\
+\
+            if ($entering == -1) break; // optimal\
+\
+            // 2) Test de razón mínima para variable saliente\
+            $leaving = -1;\
+            $min_ratio = PHP_FLOAT_MAX;\
+            for ($i = 0; $i < count($basis); $i++) {\
+                if ($t[$i][$entering] > 1e-12) {\
+                    $ratio = $t[$i][$cols - 1] / $t[$i][$entering];\
+                    if ($ratio < $min_ratio) {\
+                        $min_ratio = $ratio;\
+                        $leaving = $i;\
+                    }\
+                }\
+            }\
+\
+            if ($leaving == -1) break; // problema no acotado (no debería ocurrir)\
+\
+            // 3) Pivoteo\
+            $pivot_val = $t[$leaving][$entering];\
+            for ($j = 0; $j < $cols; $j++) {\
+                $t[$leaving][$j] /= $pivot_val;\
+            }\
+\
+            $basis[$leaving] = $entering;\
+\
+            for ($i = 0; $i <= 1; $i++) {\
+                if ($i != $leaving) {\
+                    $factor = $t[$i][$entering];\
+                    if (abs($factor) > 1e-12) {\
+                        for ($j = 0; $j < $cols; $j++) {\
+                            $t[$i][$j] -= $factor * $t[$leaving][$j];\
+                        }\
+                    }\
+                }\
+            }\
+        }\
+\
+        // 4) Extraer solución\
+        $result = [\
+            'factible' => true,\
+            'x1' => 0, 'x2' => 0, 'x3' => 0, 'x4' => 0,\
+            'ganancia_total' => 0.0,\
+            'ruta_optima' => null,\
+            'margen_optimo' => null,\
+            'iteraciones' => $iteraciones\
+        ];\
+\
+        // Verificar si alguna variable artificial quedó en la base con valor > 0\
+        $hay_artificial_en_base = false;\
+        for ($i = 0; $i < count($basis); $i++) {\
+            if ($basis[$i] == $n) { // a1\
+                $val_a1 = $t[$i][$cols - 1];\
+                if ($val_a1 > 1e-6) {\
+                    $hay_artificial_en_base = true;\
+                }\
+            }\
+        }\
+\
+        if ($hay_artificial_en_base) {\
+            return array_merge($result, ['factible' => false]);\
+        }\
+\
+        // Variables de decisión en la base\
+        $ruta_cabezas = [1 => 0, 2 => 0, 3 => 0, 4 => 0];\
+        for ($i = 0; $i < count($basis); $i++) {\
+            $col = $basis[$i];\
+            if ($col >= 0 && $col < $n) {\
+                $ruta_cabezas[$col + 1] = round($t[$i][$cols - 1], 6);\
+            }\
+        }\
+\
+        $result['x1'] = $ruta_cabezas[1];\
+        $result['x2'] = $ruta_cabezas[2];\
+        $result['x3'] = $ruta_cabezas[3];\
+        $result['x4'] = $ruta_cabezas[4];\
+\
+        // Ganancia total de la fila Z (RHS de Z-row)\
+        $result['ganancia_total'] = round($t[1][$cols - 1], 2);\
+\
+        // Identificar ruta óptima (la que recibió todas las cabezas)\
+        $max_cab = 0;\
+        for ($i = 1; $i <= $n; $i++) {\
+            if ($ruta_cabezas[$i] > $max_cab) {\
+                $max_cab = $ruta_cabezas[$i];\
+                $result['ruta_optima'] = $i;\
+            }\
+        }\
+\
+        if ($result['ruta_optima'] !== null) {\
+            $result['margen_optimo'] = $margenes[$result['ruta_optima']] ?? 0;\
+        }\
+\
+        return $result;\
+    }\
+\
+    private function validarRestricciones($hora_salida) {\
+        $tiempos = [\
+            1 => 6.5,\
+            2 => 9.0,\
+            3 => 11.0,\
+            4 => 10.0\
+        ];\
+\
+        $partes = explode(':', $hora_salida);\
+        $h = $partes[0] ?? 0;\
+        $m = $partes[1] ?? 0;\
+        $hora_decimal = $h + ($m / 60);\
+\
+        $rutas_activas = [];\
+\
+        foreach ($tiempos as $ruta => $tiempo) {\
+            $hora_llegada = $hora_decimal + $tiempo;\
+            if ($hora_llegada >= 24) {\
+                $hora_llegada -= 24;\
+            }\
+            if ($hora_llegada <= HORA_LIMITE) {\
+                $rutas_activas[] = $ruta;\
+            }\
+        }\
+\
+        return $rutas_activas;\
+    }\
+}\
+

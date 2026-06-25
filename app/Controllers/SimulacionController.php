@@ -2,85 +2,95 @@
 namespace App\Controllers;
 
 use App\Controller;
-use App\Models\{EscenarioSimulacion, Estacion, CondicionGanado};
+use App\Models\{LoteGanado, Ruta, Estacion, CondicionGanado, Clima};
 use App\Services\SimplexSolver;
 use App\Session;
 
 class SimulacionController extends Controller {
-    
+
     public function indexAction() {
-        $escenarios = EscenarioSimulacion::getEscenarios();
-        
-        $this->render('simulacion.index', [
-            'escenarios' => $escenarios,
-            'csrf' => $this->generateCsrf()
-        ]);
-    }
-    
-    public function ejecutarAction($codigo = null) {
-        if ($codigo === null) {
-            $codigo = trim($this->getGet('codigo', 'A'));
-        }
-        
-        $escenario = EscenarioSimulacion::findByCodigo($codigo);
-        
-        if (!$escenario) {
-            Session::flash('error', 'Escenario no encontrado');
-            $this->redirect('/simulacion/index');
-        }
-        
-        $datos = $escenario->getDatos();
-        
-        // Preparar parámetros del escenario para sobreescribir valores de BD
-        $parametros_escenario = [];
-        foreach (['precio_sc', 'precio_cb', 'costo_c1', 'costo_c2', 'costo_c3', 'costo_c4', 'prob_lluvia', 'bloqueo_r1', 'bloqueo_r2', 'bloqueo_r3', 'bloqueo_r4'] as $key) {
-            if (isset($datos[$key])) {
-                $parametros_escenario[$key] = $datos[$key];
-            }
+        // Usar getWithBloqueo() que sí existe en el modelo Ruta
+        $rutas_raw      = Ruta::getWithBloqueo();
+        $rutas          = [];
+        foreach ($rutas_raw as $row) {
+            $obj               = new \stdClass();
+            $obj->codigo       = $row['codigo'];
+            $obj->nombre       = $row['nombre'];
+            $obj->tiempo_horas = $row['tiempo_horas'];
+            $obj->bloqueado    = $row['bloqueado'];
+            $rutas[]           = $obj;
         }
 
-        // Simular lote con parámetros del escenario
-        $simplex = new SimplexSolver();
-        $resultado = $simplex->optimizar(
-            0,
-            CABEZAS_DEFAULT,
-            PESO_DEFAULT,
-            $datos['condicion_id'] ?? 1,
-            $datos['estacion_id'] ?? 1,
-            '20:00:00',
-            $parametros_escenario
-        );
-        
-        // Guardar datos de escenario en sesión para visualización
-        Session::set('escenario_actual', $escenario->toArray());
-        Session::set('resultado_simulacion', $resultado);
-        
-        $this->render('simulacion.resultado', [
-            'escenario' => $escenario->toArray(),
-            'datos_escenario' => $datos,
-            'resultado' => $resultado,
-            'csrf' => $this->generateCsrf()
+        $ultimo_lote     = LoteGanado::getUltimo();
+        $clima           = Clima::getActivo();
+        $condiciones     = CondicionGanado::all();
+        $estaciones      = Estacion::all();
+        $costos_vigentes = $this->getCostosVigentes();
+
+        $this->render('simulacion.index', [
+            'rutas'           => $rutas,
+            'ultimo_lote'     => $ultimo_lote,
+            'clima'           => $clima,
+            'condiciones'     => $condiciones,
+            'estaciones'      => $estaciones,
+            'costos_vigentes' => $costos_vigentes,
+            'page_title'      => 'Simulaciones',
+            'csrf'            => $this->generateCsrf()
         ]);
     }
-    
-    public function detalleAction($codigo = null) {
-        if ($codigo === null) {
-            $codigo = trim($this->getGet('codigo', 'A'));
-        }
-        
-        $escenario = EscenarioSimulacion::findByCodigo($codigo);
-        
-        if (!$escenario) {
-            Session::flash('error', 'Escenario no encontrado');
+
+    public function ejecutarAction() {
+        if (!$this->isPost()) {
             $this->redirect('/simulacion/index');
         }
-        
-        $datos = $escenario->getDatos();
-        
-        $this->render('simulacion.detalle', [
-            'escenario' => $escenario->toArray(),
-            'datos_escenario' => $datos,
-            'csrf' => $this->generateCsrf()
+
+        if (!$this->validateCsrf($this->getPost('csrf_token'))) {
+            Session::flash('error', 'Token CSRF inválido');
+            $this->redirect('/simulacion/index');
+        }
+
+        $cabezas      = intval($this->getPost('cabezas', CABEZAS_DEFAULT));
+        $peso         = floatval($this->getPost('peso_promedio_kg', PESO_DEFAULT));
+        $condicion_id = intval($this->getPost('condicion_id', 1));
+        $estacion_id  = intval($this->getPost('estacion_id', 1));
+
+        if ($cabezas <= 0 || $peso <= 0) {
+            Session::flash('error', 'Valores inválidos');
+            $this->redirect('/simulacion/index');
+        }
+
+        $simplex   = new SimplexSolver();
+        $resultado = $simplex->optimizar(
+            0,
+            $cabezas,
+            $peso,
+            $condicion_id,
+            $estacion_id,
+            '20:00:00'
+        );
+
+        $this->render('simulacion.resultado', [
+            'resultado' => $resultado,
+            'csrf'      => $this->generateCsrf()
         ]);
+    }
+
+    private function getCostosVigentes() {
+        $sql = 'SELECT cf.costo_cabeza, r.codigo, r.nombre as nombre_ruta
+                FROM costos_flete cf
+                JOIN rutas r ON cf.ruta_id = r.id
+                WHERE cf.activo = 1
+                ORDER BY r.codigo ASC';
+        $data = $this->db->fetchAll($sql);
+
+        $costos = [];
+        foreach ($data as $row) {
+            $obj               = new \stdClass();
+            $obj->codigo       = $row['codigo'];
+            $obj->nombre_ruta  = $row['nombre_ruta'];
+            $obj->costo_cabeza = $row['costo_cabeza'];
+            $costos[]          = $obj;
+        }
+        return $costos;
     }
 }

@@ -23,15 +23,20 @@ class DashboardController extends Controller {
         
         // Rutas con bloqueos
         $rutas = Ruta::getWithBloqueo();
+
+        // Últimos 5 lotes para la tabla del dashboard
+        $ultimos_lotes = LoteGanado::getUltimos(5);
         
         $this->render('dashboard.index', [
-            'usuario' => Session::get('nombre'),
-            'estadisticas' => $estadisticas,
-            'ultimo_lote' => $ultimo_lote,
-            'precios' => $precios,
-            'clima' => $clima,
-            'rutas' => $rutas,
-            'csrf' => $this->generateCsrf()
+            'usuario'       => Session::get('nombre'),
+            'estadisticas'  => $estadisticas,
+            'ultimo_lote'   => $ultimo_lote,
+            'ultimos_lotes' => $ultimos_lotes,
+            'precios'       => $precios,
+            'clima'         => $clima,
+            'rutas'         => $rutas,
+            'page_title'    => 'Dashboard',
+            'csrf'          => $this->generateCsrf()
         ]);
     }
 }
