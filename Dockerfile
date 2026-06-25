@@ -4,12 +4,10 @@ RUN apt-get update && apt-get install -y \
     libpng-dev libzip-dev zip unzip \
     && docker-php-ext-install pdo pdo_mysql mysqli zip gd
 
-# Eliminar fisicamente las cargas de MPM duplicadas y dejar solo prefork
-RUN rm -f /etc/apache2/mods-enabled/mpm_event.load \
-          /etc/apache2/mods-enabled/mpm_event.conf \
-          /etc/apache2/mods-enabled/mpm_worker.load \
-          /etc/apache2/mods-enabled/mpm_worker.conf \
-    && a2enmod mpm_prefork \
+# Forzar SOLO prefork: limpiar todos los MPM y reactivar uno solo
+RUN rm -f /etc/apache2/mods-enabled/mpm_*.load /etc/apache2/mods-enabled/mpm_*.conf \
+    && ln -sf /etc/apache2/mods-available/mpm_prefork.load /etc/apache2/mods-enabled/mpm_prefork.load \
+    && ln -sf /etc/apache2/mods-available/mpm_prefork.conf /etc/apache2/mods-enabled/mpm_prefork.conf \
     && a2enmod rewrite
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
