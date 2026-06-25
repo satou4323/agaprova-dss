@@ -4,7 +4,10 @@ RUN apt-get update && apt-get install -y \
     libpng-dev libzip-dev zip unzip \
     && docker-php-ext-install pdo pdo_mysql mysqli zip gd
 
-RUN a2enmod rewrite
+# Desactivar MPM event y activar prefork (evita el error "More than one MPM loaded")
+RUN a2dismod mpm_event mpm_worker 2>/dev/null || true \
+    && a2enmod mpm_prefork \
+    && a2enmod rewrite
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
