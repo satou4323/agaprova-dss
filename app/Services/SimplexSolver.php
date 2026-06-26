@@ -68,11 +68,17 @@ class SimplexSolver {
             $diagnostico[] = 'Ruta 3 (Ipati-Abapó) bloqueada por clima: probabilidad de lluvia ' . number_format($prob_lluvia * 100, 0) . '% (máx. ' . (LLUVIA_THRESHOLD * 100) . '%).';
         }
 
-        // Calcular márgenes según Modelo Matemático: Mi = (Precio × peso_promedio × E_inv_efectivo) – Costo
-        $m1 = ($precio_sc * $peso_promedio * $eficiencia_efectiva) - $costo_c1;
-        $m2 = ($precio_cb * $peso_promedio * $eficiencia_efectiva) - $costo_c2;
-        $m3 = ($precio_sc * $peso_promedio * $eficiencia_efectiva) - $costo_c3;
-        $m4 = ($precio_cb * $peso_promedio * $eficiencia_efectiva) - $costo_c4;
+        // Calcular márgenes según Modelo Matemático:
+        // Mi = (Precio × peso_promedio × E_inv_efectivo) – Costo_flete – Costo_oportunidad_tiempo
+        // Costo de oportunidad: cada hora de tránsito representa pérdida de valor del ganado
+        // Factor: Bs 15/hora por camión distribuido entre cabezas (penaliza rutas más largas)
+        $costo_hora_por_cabeza = 15.0 / max($cabezas, 1);
+        $tiempos_ruta = [1 => 6.5, 2 => 9.0, 3 => 11.0, 4 => 10.0];
+
+        $m1 = ($precio_sc * $peso_promedio * $eficiencia_efectiva) - $costo_c1 - ($tiempos_ruta[1] * $costo_hora_por_cabeza);
+        $m2 = ($precio_cb * $peso_promedio * $eficiencia_efectiva) - $costo_c2 - ($tiempos_ruta[2] * $costo_hora_por_cabeza);
+        $m3 = ($precio_sc * $peso_promedio * $eficiencia_efectiva) - $costo_c3 - ($tiempos_ruta[3] * $costo_hora_por_cabeza);
+        $m4 = ($precio_cb * $peso_promedio * $eficiencia_efectiva) - $costo_c4 - ($tiempos_ruta[4] * $costo_hora_por_cabeza);
 
         // Aplicar bloqueos de rutas (con sobreescritura por escenario si aplica)
         $bloqueo_bd_r1 = Bloqueo::estasBloqueada(1) ? 0 : 1;
