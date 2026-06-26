@@ -70,7 +70,13 @@ use App\Services\ClimaService;
               <?php foreach ($precios as $precio): ?>
                 <tr>
                   <td><?php echo $precio['mercado_nombre']; ?></td>
-                  <td><strong><?php echo number_format($precio['precio_kg'], 2); ?></strong> <i class="fas fa-arrow-up text-success"></i></td>
+                  <td><strong><?php echo number_format($precio['precio_kg'], 2); ?></strong>
+                    <?php if (isset($precio['delta']) && $precio['delta'] > 0): ?>
+                      <i class="fas fa-arrow-up text-success"></i>
+                    <?php elseif (isset($precio['delta']) && $precio['delta'] < 0): ?>
+                      <i class="fas fa-arrow-down text-danger"></i>
+                    <?php endif; ?>
+                  </td>
                   <td><?php echo date('d/m/Y', strtotime($precio['fecha_registro'])); ?></td>
                 </tr>
               <?php endforeach; ?>
@@ -143,16 +149,16 @@ use App\Services\ClimaService;
     ?>
       <div class="info-box mb-3 <?php echo $rainClass; ?>">
         <span class="info-box-icon"><i class="fas <?php echo $rainIcon; ?>"></i></span>
-        <div class="info-box-content">
-          <span class="info-box-text" style="color: rgba(255,255,255,0.9);">Probabilidad de lluvia en Abapó</span>
-          <span class="info-box-number" style="color: #fff; font-size: 1.8rem; font-weight: 700;"><?php echo $probPct; ?>%</span>
-          <div class="progress" style="background: rgba(255,255,255,0.3);">
-            <div class="progress-bar" style="width: <?php echo $probWidth; ?>%; background: rgba(255,255,255,0.85);"></div>
+        <div class="info-box-content" style="overflow:hidden;">
+          <span class="info-box-text" style="color:rgba(255,255,255,0.9);font-size:0.78rem;white-space:normal;line-height:1.2;">Prob. lluvia en Abapó</span>
+          <span class="info-box-number" style="color:#fff;font-size:1.6rem;font-weight:700;"><?php echo $probPct; ?>%</span>
+          <div class="progress" style="background:rgba(255,255,255,0.3);">
+            <div class="progress-bar" style="width:<?php echo $probWidth; ?>%;background:rgba(255,255,255,0.85);"></div>
           </div>
-          <span class="progress-description" style="color: rgba(255,255,255,0.8); font-size: 0.75rem;">
-            Registrado: <?php echo date('d/m/Y H:i', strtotime($clima->created_at)); ?>
+          <span class="progress-description" style="color:rgba(255,255,255,0.8);font-size:0.72rem;white-space:normal;line-height:1.3;">
+            <?php echo date('d/m/Y H:i', strtotime($clima->created_at)); ?>
             <?php if ($clima->probabilidad_lluvia >= 0.40): ?>
-              <br><i class="fas fa-exclamation-triangle"></i> Ruta 3 (Ipati-Abapó) bloqueada por restricción climática
+              <br><i class="fas fa-exclamation-triangle"></i> R3 bloqueada por clima
             <?php endif; ?>
           </span>
         </div>

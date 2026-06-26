@@ -72,9 +72,8 @@
           <?php if ($es_invierno): ?>
             <div class="callout callout-info py-2 px-3 mb-2" style="font-size:0.85rem;">
               <i class="fas fa-snowflake text-info mr-1"></i>
-              <strong>Nota estacional:</strong> Estamos en temporada seca (mayo-agosto).
-              Se recomienda seleccionar <strong>Estación: "Seca"</strong> para el rendimiento climático,
-              y <strong>Condición del Ganado: "Invernal"</strong> si el ganado está flaco por el invierno.
+              <strong>Nota estacional:</strong> Estamos en temporada de invierno (mayo-agosto).
+              Se recomienda seleccionar condición <strong>"Invernal"</strong> si aplica.
             </div>
           <?php endif; ?>
 
@@ -99,18 +98,8 @@
       document.getElementById('estacion_desc').textContent = desc;
     }
     document.addEventListener('DOMContentLoaded', function() {
-      var mes = new Date().getMonth() + 1;
-      if (mes >= 5 && mes <= 8) {
-        var selectCond = document.querySelector('select[name="condicion_id"]');
-        if (selectCond) {
-          for (var i = 0; i < selectCond.options.length; i++) {
-            if (selectCond.options[i].text.indexOf('Invernal') !== -1) {
-              selectCond.value = selectCond.options[i].value;
-              break;
-            }
-          }
-        }
-      }
+      // Bug #6 fix: no preseleccionar condición automáticamente
+      // El usuario debe elegir explícitamente
       var selCond = document.querySelector('select[name="condicion_id"]');
       if (selCond) actualizarDescCondicion(selCond);
       var selEst = document.querySelector('select[name="estacion_id"]');

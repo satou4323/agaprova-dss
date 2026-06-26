@@ -28,7 +28,8 @@ class PrecioController extends Controller {
                 $previos[$mercado_id] = $prev ? floatval($prev['precio_kg']) : null;
             }
             $precio_anterior = $previos[$mercado_id];
-            $p['delta'] = $precio_anterior !== null ? round($p['precio_kg'] - $precio_anterior, 2) : 0;
+            $rawDelta = $precio_anterior !== null ? round($p['precio_kg'] - $precio_anterior, 2) : 0;
+            $p['delta'] = ($rawDelta == 0) ? 0 : $rawDelta;
             $precios[] = $p;
 
             if ($p['precio_kg'] > $max_precio) {
