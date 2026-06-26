@@ -14,13 +14,23 @@ use App\Services\ClimaService;
               <div class="form-group mb-0">
                 <label class="text-muted" style="font-size:0.9rem;font-weight:bold;">Probabilidad de Lluvia</label>
                 <div style="margin-top:15px;margin-bottom:5px;padding:0 10px;">
-                  <input id="prob_slider" type="text" name="probabilidad_lluvia" value="" placeholder="Ej: 0.25">
+                  <!-- Bug 6 fix: type="number" con min/max/step + slider sincronizado -->
+                  <input id="prob_number" type="number" name="probabilidad_lluvia"
+                         min="0" max="1" step="0.01" class="form-control" required
+                         value="<?php echo $clima_actual ? $clima_actual->probabilidad_lluvia : 0.25; ?>"
+                         placeholder="Ej: 0.25">
+                  <input id="prob_slider" type="range" min="0" max="1" step="0.01"
+                         value="<?php echo $clima_actual ? $clima_actual->probabilidad_lluvia : 0.25; ?>"
+                         style="width:100%;margin-top:10px;">
+                  <small class="text-muted d-block mt-1" id="prob_label" style="font-size:0.85rem;">
+                    <?php echo $clima_actual ? number_format($clima_actual->probabilidad_lluvia*100,0).'%' : '25%'; ?>
+                  </small>
                 </div>
               </div>
             </div>
             <div class="col-md-5 d-flex flex-column justify-content-center">
               <small class="text-muted d-block mb-2">0.00 = Sin lluvia | 0.50 = 50% | 1.00 = Lluvia segura</small>
-              <small class="text-info d-block mb-0"><i class="fas fa-info-circle"></i> Deslice para ajustar la probabilidad.</small>
+              <small class="text-info d-block mb-0"><i class="fas fa-info-circle"></i> Ajuste el valor o use el deslizador.</small>
             </div>
           </div>
           <div class="text-center mt-4">
@@ -98,7 +108,7 @@ use App\Services\ClimaService;
   </div>
 </div>
 
-<!-- CAMBIO 7: Alerta si el dato es antiguo (más de 3 días) -->
+<?php if ($clima_actual): ?>
 <?php
 $fechaUltimo = new DateTime($clima_actual->created_at ?? '2000-01-01');
 $hoy         = new DateTime();
@@ -108,11 +118,11 @@ $diasDiff    = $hoy->diff($fechaUltimo)->days;
 <div class="alert alert-warning alert-dismissible fade show mb-3" role="alert">
   <i class="fas fa-exclamation-triangle mr-2"></i>
   <strong>Dato climático desactualizado.</strong>
-  El último registro de lluvia tiene <strong><?php echo $diasDiff; ?> días</strong> de antigüedad
-  (<?php echo $fechaUltimo->format('d/m/Y'); ?>). Se recomienda actualizar la probabilidad de lluvia
-  para obtener resultados de optimización precisos.
+  El último registro tiene <strong><?php echo $diasDiff; ?> días</strong> de antigüedad
+  (<?php echo $fechaUltimo->format('d/m/Y'); ?>). Se recomienda actualizar.
   <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
 </div>
+<?php endif; ?>
 <?php endif; ?>
 
 <div class="card card-outline card-primary">
@@ -161,21 +171,30 @@ $diasDiff    = $hoy->diff($fechaUltimo)->days;
   </div>
 </div>
 
-<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/adminlte/plugins/ion-rangeslider/css/ion.rangeSlider.min.css"/>
-<script src="<?php echo BASE_URL; ?>/assets/adminlte/plugins/ion-rangeslider/js/ion.rangeSlider.min.js"></script>
-
 <script>
   document.addEventListener('DOMContentLoaded', function () {
-    if (typeof jQuery !== 'undefined' && $.fn.ionRangeSlider) {
-      $('#prob_slider').ionRangeSlider({
-        min: 0, max: 1,
-        from: <?php echo $clima_actual ? $clima_actual->probabilidad_lluvia : 0.25; ?>,
-        step: 0.01, type: 'single',
-        postfix: " (probabilidad)",
-        prettify: function(num) { return (num*100).toFixed(0)+'%'; },
-        grid: true, grid_num: 4, skin: "round"
+    // Bug 12 fix: slider sincronizado con input numérico
+    var slider = document.getElementById('prob_slider');
+    var number = document.getElementById('prob_number');
+    var label  = document.getElementById('prob_label');
+
+    function updateLabel(val) {
+      if (label) label.textContent = (parseFloat(val) * 100).toFixed(0) + '%';
+    }
+    if (slider && number) {
+      slider.addEventListener('input', function() {
+        number.value = parseFloat(this.value).toFixed(2);
+        updateLabel(this.value);
+      });
+      number.addEventListener('input', function() {
+        var v = parseFloat(this.value);
+        if (!isNaN(v) && v >= 0 && v <= 1) {
+          slider.value = v;
+          updateLabel(v);
+        }
       });
     }
+
     if (typeof jQuery !== 'undefined' && $.fn.DataTable) {
       $('#climaTable').DataTable({
         responsive: true, lengthChange: false, pageLength: 9, autoWidth: false,

@@ -74,12 +74,19 @@ class PrecioController extends Controller {
         }
         
         $mercado_id = intval($this->getPost('mercado_id', 0));
-        $precio_kg = floatval($this->getPost('precio_kg', 0));
-        
-        if ($precio_kg <= 0) {
-            Session::flash('error', 'Precio debe ser positivo');
+        $precio_kg  = $this->getPost('precio_kg', '');
+
+        if ($mercado_id <= 0) {
+            Session::flash('error', 'Seleccione un mercado válido');
             $this->redirect('/precio/index');
         }
+
+        if (!is_numeric($precio_kg) || floatval($precio_kg) <= 0) {
+            Session::flash('error', 'Ingrese un precio válido mayor a 0');
+            $this->redirect('/precio/index');
+        }
+
+        $precio_kg = floatval($precio_kg);
         
         // Desactivar precios anteriores del mismo mercado
         $sql_deactivate = 'UPDATE precios SET activo = 0 WHERE mercado_id = ?';

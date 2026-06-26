@@ -32,24 +32,25 @@ class ClimaController extends Controller {
             $this->redirect('/clima/index');
         }
         
-        $probabilidad = floatval($this->getPost('probabilidad_lluvia', 0));
-        
+        $raw = $this->getPost('probabilidad_lluvia', '');
+
+        if (!is_numeric($raw)) {
+            Session::flash('error', 'Ingrese un valor numérico entre 0 y 1');
+            $this->redirect('/clima/index');
+        }
+
+        $probabilidad = floatval($raw);
+
         if ($probabilidad < 0 || $probabilidad > 1) {
             Session::flash('error', 'Probabilidad debe estar entre 0 y 1');
             $this->redirect('/clima/index');
         }
         
-        try {
-            $ok = ClimaService::updateClima($probabilidad);
-        } catch (\Exception $e) {
-            error_log('ClimaController update error: ' . $e->getMessage());
-            $ok = false;
-        }
-        if ($ok) {
+        if (ClimaService::updateClima($probabilidad)) {
             $interpretacion = ClimaService::getInterpretacion($probabilidad);
             Session::flash('success', 'Clima actualizado. ' . $interpretacion);
         } else {
-            Session::flash('error', 'Ocurrió un error al actualizar. Intente nuevamente.');
+            Session::flash('error', 'Error al actualizar clima');
         }
         
         $this->redirect('/clima/index');
