@@ -1,0 +1,1 @@
+<?php $f='C:/Apache24/htdocs/agaprova-dss/app/Controllers/BloqueoController.php';$c=file_get_contents($f);$pos=strpos($c,"Ruta registrada correctamente");$around=substr($c,$pos,300);$bytes=[];for($i=0;$i<strlen($around);$i++){$bytes[]=ord($around[$i]);}echo json_encode($bytes);?>

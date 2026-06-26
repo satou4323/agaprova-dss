@@ -10,7 +10,7 @@ class Ruta extends Model {
     public static function getActivas() {
         $instance = new static();
         $sql = 'SELECT r.*, m.nombre as mercado_nombre FROM ' . $instance->table . ' r
-                JOIN mercados m ON r.mercado_id = m.id
+                LEFT JOIN mercados m ON r.mercado_id = m.id
                 WHERE r.activo = 1 ORDER BY r.codigo';
         $data = $instance->db->fetchAll($sql);
         
@@ -28,7 +28,7 @@ class Ruta extends Model {
         $sql = 'SELECT r.*, m.nombre as mercado_nombre, 
                 COALESCE(b.activo, 0) as bloqueado
                 FROM ' . $instance->table . ' r
-                JOIN mercados m ON r.mercado_id = m.id
+                LEFT JOIN mercados m ON r.mercado_id = m.id
                 LEFT JOIN bloqueos b ON r.id = b.ruta_id AND b.activo = 1
                 WHERE r.activo = 1 ORDER BY r.codigo';
         return $instance->db->fetchAll($sql);

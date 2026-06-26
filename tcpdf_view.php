@@ -1,0 +1,1 @@
+<?php $c = file_get_contents('C:/Apache24/htdocs/agaprova-dss/vendor/tecnickcom/tcpdf/include/tcpdf_static.php'); $lines = explode("\\n", $c); $relevant = array_slice($lines, 100, 30); echo implode("\\n", $relevant); ?>

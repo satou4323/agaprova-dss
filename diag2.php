@@ -1,0 +1,1 @@
+<?php $f='C:/Apache24/htdocs/agaprova-dss/app/Controllers/BloqueoController.php';$c=file_get_contents($f);$pos=strpos($c,"Ruta registrada correctamente");echo "Found at: ".$pos."|Chars before: ".substr($c,$pos-100,100)."|Chars after: ".substr($c,$pos,300); ?>

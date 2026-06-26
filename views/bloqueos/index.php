@@ -115,6 +115,16 @@
                   </button>
                 <?php endif; ?>
               </form>
+
+              <!-- Eliminar ruta -->
+              <form method="POST" action="<?php echo BASE_URL; ?>/bloqueo/eliminar" class="mt-1 ruta-eliminar-form">
+                <input type="hidden" name="ruta_id" value="<?php echo $ruta->id; ?>">
+                <input type="hidden" name="<?php echo CSRF_TOKEN_NAME; ?>" value="<?php echo $csrf; ?>">
+                <button type="submit" class="btn btn-outline-secondary btn-sm btn-block"
+                        style="border-width:1px; padding:4px 10px; font-size:0.8rem;">
+                  <i class="fas fa-trash mr-1"></i> Eliminar Ruta
+                </button>
+              </form>
             </div>
           </div>
         </div>
@@ -214,6 +224,28 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   }
+
+  // Confirmar eliminación
+  const formsEliminar = document.querySelectorAll('.ruta-eliminar-form');
+  formsEliminar.forEach(function(form) {
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      Swal.fire({
+        title: '¿Eliminar ruta?',
+        text: 'Esta acción no se puede deshacer.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          form.submit();
+        }
+      });
+    });
+  });
 
   // Toast al hacer toggle
   const forms = document.querySelectorAll('.ruta-toggle-form');

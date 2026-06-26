@@ -70,6 +70,16 @@
             </select>
           </div>
         </div>
+        <div class="col-md-6">
+          <div class="form-group">
+            <label for="mercado_id">Mercado de Destino</label>
+            <select name="mercado_id" id="mercado_id" class="form-control">
+              <option value="">-- Sin mercado asignado --</option>
+              <option value="1">Mercado Mayorista Santa Cruz</option>
+              <option value="2">Feria de Punata - Cochabamba</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       <hr>

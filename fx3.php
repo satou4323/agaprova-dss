@@ -1,0 +1,1 @@
+<?php $f='C:/Apache24/htdocs/agaprova-dss/app/Controllers/BloqueoController.php';$c=file_get_contents($f);echo strlen($c).'|'.substr_count($c,'guardarAction').'|'.substr($c,strrpos($c,'guardarAction'),300); ?>
