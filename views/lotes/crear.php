@@ -72,8 +72,9 @@
           <?php if ($es_invierno): ?>
             <div class="callout callout-info py-2 px-3 mb-2" style="font-size:0.85rem;">
               <i class="fas fa-snowflake text-info mr-1"></i>
-              <strong>Nota estacional:</strong> Estamos en temporada de invierno (mayo-agosto).
-              Se recomienda seleccionar condición <strong>"Invernal"</strong> si aplica.
+              <strong>Nota estacional:</strong> Estamos en temporada seca (mayo-agosto).
+              Se recomienda seleccionar <strong>Estación: "Seca"</strong> para el rendimiento climático,
+              y <strong>Condición del Ganado: "Invernal"</strong> si el ganado está flaco por el invierno.
             </div>
           <?php endif; ?>
 

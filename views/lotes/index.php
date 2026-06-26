@@ -168,7 +168,7 @@ document.addEventListener('DOMContentLoaded', function() {
     pagingType: 'full_numbers',
     pageLength: 9,
     order: [[0, 'desc']],
-    columnDefs: [{ orderable: false, targets: -1 }],
+    columnDefs: [{ orderable: false, targets: -1 }, { searchable: false, targets: 2 }],
     language: {
       zeroRecords: 'No se encontraron resultados',
       emptyTable:  'Ningún dato disponible',

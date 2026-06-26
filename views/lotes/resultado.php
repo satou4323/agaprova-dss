@@ -89,7 +89,8 @@
                 <tr><td style="width:55%;"><strong>Peso Promedio:</strong></td><td style="text-align:right;"><?php echo number_format($resultado['detalles']['peso_promedio'],2); ?> kg</td></tr>
                 <tr><td><strong>Factor Estación:</strong></td><td style="text-align:right;"><?php echo number_format($resultado['detalles']['factor_estacion'],2); ?></td></tr>
                 <tr><td><strong>Factor Condición:</strong></td><td style="text-align:right;"><?php echo number_format($resultado['detalles']['factor_condicion'],2); ?></td></tr>
-                <tr><td><strong>Eficiencia Efectiva:</strong></td><td style="text-align:right;"><?php echo number_format($resultado['detalles']['eficiencia_efectiva'],2); ?> kg/cab</td></tr>
+                <tr><td><strong>E. Efectiva (coef.):</strong></td><td style="text-align:right;"><?php echo number_format($resultado['detalles']['eficiencia_efectiva'],4); ?></td></tr>
+                <tr><td><strong>Peso Neto Efectivo:</strong></td><td style="text-align:right;"><?php echo number_format($resultado['detalles']['peso_promedio'] * $resultado['detalles']['eficiencia_efectiva'], 2); ?> kg/cab</td></tr>
                 <tr><td><strong>Prob. Lluvia (Abapó):</strong></td><td style="text-align:right;"><?php echo number_format($resultado['detalles']['probabilidad_lluvia']*100,1); ?>%</td></tr>
               </table>
             </div>
