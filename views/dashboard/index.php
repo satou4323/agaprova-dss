@@ -172,21 +172,23 @@ use App\Services\ClimaService;
         <h3 class="card-title"><i class="fas fa-route mr-1"></i> Estado de Rutas</h3>
       </div>
       <div class="card-body p-0">
-        <?php
-          $rutasBloqueadas = array_filter($rutas, fn($r) => $r['bloqueado'] == 1);
-        ?>
-        <?php if (!empty($rutasBloqueadas)): ?>
+        <?php if (!empty($rutas_bloqueadas)): ?>
           <ul class="list-group list-group-flush">
-            <?php foreach ($rutasBloqueadas as $ruta): ?>
-              <li class="list-group-item">
-                <span class="badge bg-danger"><?php echo $ruta['codigo']; ?></span>
-                <?php echo $ruta['nombre']; ?>
+            <?php foreach ($rutas_bloqueadas as $ruta): ?>
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                <span>
+                  <span class="badge badge-danger mr-1"><?php echo $ruta['codigo']; ?></span>
+                  <?php echo $ruta['nombre']; ?>
+                </span>
+                <span class="badge badge-warning">BLOQUEADA</span>
               </li>
             <?php endforeach; ?>
           </ul>
         <?php else: ?>
           <div class="p-3">
-            <p style="color: #999; margin: 0;"><i class="fas fa-check-circle" style="color: #28a745;"></i> Todas las rutas activas</p>
+            <p style="color: #999; margin: 0;">
+              <i class="fas fa-check-circle" style="color: #28a745;"></i> Todas las rutas activas
+            </p>
           </div>
         <?php endif; ?>
       </div>

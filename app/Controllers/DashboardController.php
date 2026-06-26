@@ -21,8 +21,9 @@ class DashboardController extends Controller {
         // Clima actual
         $clima = Clima::getActivo();
         
-        // Rutas con bloqueos
+        // Rutas con bloqueos — misma fuente para ambos widgets (Bug 8 fix)
         $rutas = Ruta::getWithBloqueo();
+        $rutas_bloqueadas = array_filter($rutas, fn($r) => $r['bloqueado'] == 1);
 
         // Últimos 5 lotes para la tabla del dashboard
         $ultimos_lotes = LoteGanado::getUltimos(5);
@@ -34,7 +35,8 @@ class DashboardController extends Controller {
             'ultimos_lotes' => $ultimos_lotes,
             'precios'       => $precios,
             'clima'         => $clima,
-            'rutas'         => $rutas,
+            'rutas'             => $rutas,
+            'rutas_bloqueadas'  => array_values($rutas_bloqueadas),
             'page_title'    => 'Dashboard',
             'csrf'          => $this->generateCsrf()
         ]);
