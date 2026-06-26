@@ -1,12 +1,12 @@
 <?php
-// router.php — Railway PHP built-in server router
+// router.php — Railway PHP built-in server
 
 $uri = urldecode(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));
 $root = __DIR__;
 
-// ── 1. Archivos estáticos reales (CSS, JS, imágenes, fonts) ──────────────────
+// ── Archivos estáticos (CSS, JS, imágenes, fuentes) ─────────────────────────
 if ($uri !== '/' && file_exists($root . $uri)) {
-    $ext = pathinfo($uri, PATHINFO_EXTENSION);
+    $ext = strtolower(pathinfo($uri, PATHINFO_EXTENSION));
     $mime = [
         'css'   => 'text/css',
         'js'    => 'application/javascript',
@@ -20,24 +20,19 @@ if ($uri !== '/' && file_exists($root . $uri)) {
         'woff2' => 'font/woff2',
         'ttf'   => 'font/ttf',
         'eot'   => 'application/vnd.ms-fontobject',
-        'pdf'   => 'application/pdf',
         'webp'  => 'image/webp',
+        'map'   => 'application/json',
     ];
     if (isset($mime[$ext])) {
         header('Content-Type: ' . $mime[$ext]);
         readfile($root . $uri);
         return true;
     }
-    // Para archivos no mapeados (txt, json, etc.) el servidor los sirve solo
     return false;
 }
 
-// ── 2. Todo lo demás va al index.php del MVC ─────────────────────────────────
-// Extraer la ruta para el router del MVC (quitar la / inicial)
-$path = ltrim($uri, '/');
-
-// Pasar como parámetro GET 'url' (como espera tu .htaccess original)
-$_GET['url'] = $path;
-$_REQUEST['url'] = $path;
+// ── Todo lo demás va al MVC ──────────────────────────────────────────────────
+$_GET['url'] = ltrim($uri, '/');
+$_REQUEST['url'] = $_GET['url'];
 
 require_once $root . '/index.php';
