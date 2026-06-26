@@ -6,8 +6,10 @@ define('BASE_DIR', __DIR__);
 // Cargar configuración primero (necesitamos las constantes DB_*)
 require_once BASE_DIR . '/config/config.php';
 
-// ── Sesiones persistentes en MySQL para Railway ──────────────────────────────
-require_once BASE_DIR . '/app/SessionHandler.php';
+// ── Sesiones persistentes en MySQL (funciona en Railway y localhost) ─────────
+if (!class_exists('App\SessionHandler')) {
+    require_once BASE_DIR . '/app/SessionHandler.php';
+}
 $sessionHandler = new \App\SessionHandler();
 session_set_save_handler($sessionHandler, true);
 ini_set('session.gc_maxlifetime', 3600);
@@ -45,5 +47,5 @@ try {
 } catch (Exception $e) {
     error_log('Application Error: ' . $e->getMessage());
     http_response_code(500);
-    die('Error interno del servidor');
+    echo '<pre>Error: ' . $e->getMessage() . "\n" . $e->getTraceAsString() . '</pre>';
 }

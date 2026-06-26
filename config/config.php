@@ -1,14 +1,26 @@
 <?php
 // DSS AGAPROVA - Configuración Global
 
-// BASE_URL — corregido para Railway y servidor built-in PHP
+// BASE_URL — detecta automáticamente local vs Railway
 if (!defined('BASE_URL')) {
     $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'
                  || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https')
                 ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    // En Railway el script corre desde la raíz, sin subdirectorio
-    define('BASE_URL', $protocol . '://' . $host);
+
+    // En local (localhost/127.0.0.1) conserva el subdirectorio /agaprova-dss
+    // En Railway va a la raíz /
+    $localHosts = ['localhost', '127.0.0.1', 'localhost:8000', 'localhost:8080'];
+    if (in_array($host, $localHosts)) {
+        // Detecta el subdirectorio automáticamente desde SCRIPT_NAME
+        $scriptDir = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
+        // Si SCRIPT_NAME es /agaprova-dss/index.php -> scriptDir = /agaprova-dss
+        // Si SCRIPT_NAME es /index.php -> scriptDir = ''
+        define('BASE_URL', $protocol . '://' . $host . $scriptDir);
+    } else {
+        // Railway: siempre raíz
+        define('BASE_URL', $protocol . '://' . $host);
+    }
 }
 
 if (!defined('BASE_PATH')) {
@@ -32,19 +44,19 @@ if (!defined('CSRF_TOKEN_NAME'))   { define('CSRF_TOKEN_NAME', 'csrf_token'); }
 if (!defined('CSRF_TOKEN_LENGTH')) { define('CSRF_TOKEN_LENGTH', 32); }
 
 // Rutas
-if (!defined('ROUTE_CONTROLLER'))  { define('ROUTE_CONTROLLER', 'controller'); }
-if (!defined('ROUTE_ACTION'))      { define('ROUTE_ACTION', 'action'); }
-if (!defined('DEFAULT_CONTROLLER')){ define('DEFAULT_CONTROLLER', 'Dashboard'); }
-if (!defined('DEFAULT_ACTION'))    { define('DEFAULT_ACTION', 'index'); }
-if (!defined('LOGIN_CONTROLLER'))  { define('LOGIN_CONTROLLER', 'Auth'); }
-if (!defined('LOGIN_ACTION'))      { define('LOGIN_ACTION', 'login'); }
+if (!defined('ROUTE_CONTROLLER'))   { define('ROUTE_CONTROLLER', 'controller'); }
+if (!defined('ROUTE_ACTION'))       { define('ROUTE_ACTION', 'action'); }
+if (!defined('DEFAULT_CONTROLLER')) { define('DEFAULT_CONTROLLER', 'Dashboard'); }
+if (!defined('DEFAULT_ACTION'))     { define('DEFAULT_ACTION', 'index'); }
+if (!defined('LOGIN_CONTROLLER'))   { define('LOGIN_CONTROLLER', 'Auth'); }
+if (!defined('LOGIN_ACTION'))       { define('LOGIN_ACTION', 'login'); }
 
 // Parámetros del Modelo Matemático
-if (!defined('E_INV_BASE'))          { define('E_INV_BASE', 0.58); }
-if (!defined('LLUVIA_THRESHOLD'))    { define('LLUVIA_THRESHOLD', 0.40); }
-if (!defined('HORA_LIMITE'))         { define('HORA_LIMITE', 8.0); }
-if (!defined('CABEZAS_DEFAULT'))     { define('CABEZAS_DEFAULT', 45); }
-if (!defined('PESO_DEFAULT'))        { define('PESO_DEFAULT', 420); }
+if (!defined('E_INV_BASE'))       { define('E_INV_BASE', 0.58); }
+if (!defined('LLUVIA_THRESHOLD')) { define('LLUVIA_THRESHOLD', 0.40); }
+if (!defined('HORA_LIMITE'))      { define('HORA_LIMITE', 8.0); }
+if (!defined('CABEZAS_DEFAULT'))  { define('CABEZAS_DEFAULT', 45); }
+if (!defined('PESO_DEFAULT'))     { define('PESO_DEFAULT', 420); }
 
 // Identidad visual
 if (!defined('APP_NAME'))    { define('APP_NAME', 'DSS AGAPROVA'); }
@@ -64,9 +76,9 @@ if (!defined('FORCE_HTTPS')) {
     define('FORCE_HTTPS', !in_array($_SERVER['HTTP_HOST'] ?? '', $localHosts));
 }
 
-// Error reporting — activado para ver errores en Railway
+// Error reporting
 error_reporting(E_ALL);
-ini_set('display_errors', 1);   // <-- temporal para debug
+ini_set('display_errors', 1);
 ini_set('log_errors', 1);
 ini_set('error_log', BASE_PATH . '/logs/errors.log');
 
