@@ -32,7 +32,7 @@ if ($uri !== '/' && file_exists($root . $uri)) {
 }
 
 // ── Todo lo demás va al MVC ──────────────────────────────────────────────────
-$_GET['url'] = ltrim($uri, '/');
+$_GET['url']     = ltrim($uri, '/');
 $_REQUEST['url'] = $_GET['url'];
 
 require_once $root . '/index.php';
