@@ -39,11 +39,17 @@ class ClimaController extends Controller {
             $this->redirect('/clima/index');
         }
         
-        if (ClimaService::updateClima($probabilidad)) {
+        try {
+            $ok = ClimaService::updateClima($probabilidad);
+        } catch (\Exception $e) {
+            error_log('ClimaController update error: ' . $e->getMessage());
+            $ok = false;
+        }
+        if ($ok) {
             $interpretacion = ClimaService::getInterpretacion($probabilidad);
             Session::flash('success', 'Clima actualizado. ' . $interpretacion);
         } else {
-            Session::flash('error', 'Error al actualizar clima');
+            Session::flash('error', 'Ocurrió un error al actualizar. Intente nuevamente.');
         }
         
         $this->redirect('/clima/index');

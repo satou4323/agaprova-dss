@@ -5,7 +5,7 @@ use App\Model;
 
 class Clima extends Model {
     protected $table = 'clima';
-    protected $fillable = ['probabilidad_lluvia', 'ubicacion', 'estacion_id', 'fecha_registro', 'activo', 'created_at'];
+    protected $fillable = ['probabilidad_lluvia', 'ubicacion', 'fecha_registro', 'activo', 'created_at'];
     
     public static function getActivo() {
         $instance = new static();

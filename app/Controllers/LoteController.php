@@ -59,13 +59,16 @@ class LoteController extends Controller {
         $lote->peso_promedio_kg = $peso_promedio;
         $lote->condicion_id    = $condicion_id;
         $lote->estacion_id     = $estacion_id;
-        $lote->usuario_id      = Session::get('user_id');
         $lote->hora_salida     = '20:00:00';
         $lote->fecha_registro  = date('Y-m-d');
         $lote->activo          = 1;
         $lote->created_at      = date('Y-m-d H:i:s');
         
-        if ($lote->save()) {
+        try { $saveOk = $lote->save(); } catch (\Exception $e) {
+            error_log('LoteController save error: ' . $e->getMessage());
+            $saveOk = false;
+        }
+        if ($saveOk) {
             $simplex   = new SimplexSolver();
             $resultado = $simplex->optimizar(
                 $lote->id,
@@ -106,7 +109,7 @@ class LoteController extends Controller {
             Session::set('resultado_optimizacion', $resultado);
             $this->redirect('/lote/resultado');
         } else {
-            Session::flash('error', 'Error al guardar el lote');
+            Session::flash('error', 'Ocurrió un error al guardar. Intente nuevamente.');
             $this->redirect('/lote/crear');
         }
     }
