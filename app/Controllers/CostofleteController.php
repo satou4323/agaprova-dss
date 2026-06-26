@@ -40,7 +40,12 @@ class CostoFleteController extends Controller {
         
         $ruta_id = intval($this->getPost('ruta_id', 0));
         $costo_cabeza = floatval($this->getPost('costo_cabeza', 0));
-        
+
+        if ($ruta_id <= 0) {
+            Session::flash('error', 'Seleccione una ruta válida');
+            $this->redirect('/costoflete/index');
+        }
+
         if ($costo_cabeza <= 0) {
             Session::flash('error', 'Costo debe ser positivo');
             $this->redirect('/costoflete/index');

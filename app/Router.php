@@ -15,6 +15,17 @@ class Router {
         $this->controller = !empty($parts) ? ucfirst(array_shift($parts)) : DEFAULT_CONTROLLER;
         $this->action = !empty($parts) ? array_shift($parts) : DEFAULT_ACTION;
         $this->params = array_values($parts);
+
+        // Bug #8 fix: redirigir /ruta/* → /bloqueo/*
+        if (strtolower($this->controller) === 'ruta') {
+            header('Location: ' . BASE_URL . '/bloqueo/' . $this->action);
+            exit;
+        }
+
+        // Bug fix: CostoFlete tiene F mayúscula — normalizar
+        if (strtolower($this->controller) === 'costoflete') {
+            $this->controller = 'CostoFlete';
+        }
         
         // Verificar autenticación
         if ($this->controller !== 'Auth') {

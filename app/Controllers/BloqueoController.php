@@ -50,19 +50,17 @@ class BloqueoController extends Controller {
         $accion  = trim($this->getPost('accion', 'activar'));
         
         if ($accion === 'activar') {
-            $sql = 'SELECT id FROM bloqueos WHERE ruta_id = ? LIMIT 1';
-            $existe = $this->db->fetch($sql, [$ruta_id]);
-            
-            if ($existe) {
-                $sql = 'UPDATE bloqueos SET activo = 1, fecha_inicio = NOW() WHERE ruta_id = ?';
-            } else {
-                $sql = 'INSERT INTO bloqueos (ruta_id, activo, fecha_inicio) VALUES (?, 1, NOW())';
-            }
+            // Bug #12 fix: desactivar registros anteriores y crear uno nuevo
+            // Así el historial registra CADA evento de bloqueo con su timestamp real
+            $this->db->query('UPDATE bloqueos SET activo = 0, fecha_fin = NOW() WHERE ruta_id = ? AND activo = 1', [$ruta_id]);
+            $sql = 'INSERT INTO bloqueos (ruta_id, activo, fecha_inicio, created_at) VALUES (?, 1, NOW(), NOW())';
+            $ok = $this->db->query($sql, [$ruta_id]);
         } else {
-            $sql = 'UPDATE bloqueos SET activo = 0, fecha_fin = NOW() WHERE ruta_id = ?';
+            $sql = 'UPDATE bloqueos SET activo = 0, fecha_fin = NOW() WHERE ruta_id = ? AND activo = 1';
+            $ok = $this->db->query($sql, [$ruta_id]);
         }
-        
-        if ($this->db->query($sql, [$ruta_id])) {
+
+        if ($ok) {
             Session::flash('success', 'Bloqueo actualizado');
         } else {
             Session::flash('error', 'Error al actualizar bloqueo');

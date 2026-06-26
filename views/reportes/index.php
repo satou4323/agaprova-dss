@@ -212,7 +212,9 @@ document.addEventListener('DOMContentLoaded', function() {
           <span class="info-box-icon"><i class="fas fa-map-marker-alt"></i></span>
           <div class="info-box-content">
             <span class="info-box-text">Precio Santa Cruz</span>
-            <span class="info-box-number">Bs <?php echo number_format($estadisticas['precio_1'] ?? 0, 2); ?>/kg</span>
+            <span class="info-box-number" style="font-size:1.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              Bs <?php echo number_format($estadisticas['precio_1'] ?? 0, 2); ?>/kg
+            </span>
           </div>
         </div>
       </div>
@@ -221,7 +223,9 @@ document.addEventListener('DOMContentLoaded', function() {
           <span class="info-box-icon"><i class="fas fa-map-marker-alt"></i></span>
           <div class="info-box-content">
             <span class="info-box-text">Precio Cochabamba</span>
-            <span class="info-box-number">Bs <?php echo number_format($estadisticas['precio_2'] ?? 0, 2); ?>/kg</span>
+            <span class="info-box-number" style="font-size:1.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              Bs <?php echo number_format($estadisticas['precio_2'] ?? 0, 2); ?>/kg
+            </span>
           </div>
         </div>
       </div>
